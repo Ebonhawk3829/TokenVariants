@@ -2,33 +2,35 @@ import { TVA_CONFIG, updateSettings } from '../scripts/settings.js';
 import { getFileName } from '../scripts/utils.js';
 import { showArtSelect } from '../token-variants.mjs';
 
-export default class MissingImageConfig extends FormApplication {
+export default class MissingImageConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor() {
-    super({}, {});
+    super({});
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-missing-images',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/missingImageConfig.html',
-      resizable: true,
-      minimizable: false,
-      title: 'Define Missing Images',
-      width: 560,
-      height: 'auto',
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-missing-images',
+    classes: ['sheet'],
+    position: { width: 560, height: 'auto' },
+    window: { resizable: true, minimizable: false, title: 'Define Missing Images' },
+    form: {
+      handler: MissingImageConfig.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    const data = super.getData(options);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/missingImageConfig.html' },
+  };
 
+  async _prepareContext(options) {
     if (!this.missingImages) this.missingImages = foundry.utils.deepClone(TVA_CONFIG.compendiumMapper.missingImages);
-
-    data.missingImages = this.missingImages;
-
-    data.documents = ['all', 'Actor', 'Cards', 'Item', 'Macro', 'RollTable'];
-    return data;
+    return {
+      missingImages: this.missingImages,
+      documents: ['all', 'Actor', 'Cards', 'Item', 'Macro', 'RollTable'],
+    };
   }
 
   _processFormData(formData) {
@@ -36,7 +38,6 @@ export default class MissingImageConfig extends FormApplication {
       formData.document = [formData.document];
       formData.image = [formData.image];
     }
-
     const missingImages = [];
     for (let i = 0; i < formData.document.length; i++) {
       missingImages.push({ document: formData.document[i], image: formData.image[i] });
@@ -44,91 +45,97 @@ export default class MissingImageConfig extends FormApplication {
     return missingImages;
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
+  _onRender(context, options) {
+    const el = this.element;
 
-    html.on('click', '.add-row', () => {
-      const formData = this._getSubmitData();
-      this.missingImages = this._processFormData(formData);
-      this.missingImages.push({ document: 'all', image: CONST.DEFAULT_TOKEN });
-      this.render();
-    });
+    el.addEventListener('click', (event) => {
+      const target = event.target;
 
-    html.on('click', '.delete-row', (event) => {
-      const formData = this._getSubmitData();
-      this.missingImages = this._processFormData(formData);
-      const index = $(event.target).closest('li')[0].dataset.index;
-      this.missingImages.splice(index, 1);
-      this.render();
-    });
+      if (target.closest('.add-row')) {
+        const formData = this._getSubmitData();
+        this.missingImages = this._processFormData(formData);
+        this.missingImages.push({ document: 'all', image: CONST.DEFAULT_TOKEN });
+        this.render();
+        return;
+      }
 
-    html.on('click', '.file-picker', (event) => {
-      new foundry.applications.apps.FilePicker.implementation({
-        type: 'imagevideo',
-        callback: (path) => {
-          $(event.target).closest('li').find('[name="image"]').val(path);
-          $(event.target).closest('li').find('img').attr('src', path);
-        },
-      }).render();
-    });
+      if (target.closest('.delete-row')) {
+        const formData = this._getSubmitData();
+        this.missingImages = this._processFormData(formData);
+        const li = target.closest('li');
+        const index = li.dataset.index;
+        this.missingImages.splice(index, 1);
+        this.render();
+        return;
+      }
 
-    html.on('click', '.duplicate-picker', (event) => {
-      let content = `<select style="width: 100%;" name="compendium">`;
+      if (target.closest('.file-picker')) {
+        const li = target.closest('li');
+        new foundry.applications.apps.FilePicker.implementation({
+          type: 'imagevideo',
+          callback: (path) => {
+            const imgInput = li.querySelector('[name="image"]');
+            if (imgInput) imgInput.value = path;
+            const img = li.querySelector('img');
+            if (img) img.src = path;
+          },
+        }).render();
+        return;
+      }
 
-      game.packs.forEach((pack) => {
-        content += `<option value='${pack.collection}'>${pack.title}</option>`;
-      });
+      if (target.closest('.duplicate-picker')) {
+        const li = target.closest('li');
+        let content = `<select style="width: 100%;" name="compendium">`;
+        game.packs.forEach((pack) => {
+          content += `<option value='${pack.collection}'>${pack.title}</option>`;
+        });
+        content += `</select>`;
 
-      content += `</select>`;
-
-      new Dialog({
-        title: `Compendiums`,
-        content: content,
-        buttons: {
-          yes: {
-            icon: "<i class='far fa-search'></i>",
-            label: 'Search for Duplicates',
-            callback: (html) => {
-              const found = new Set();
-              const duplicates = new Set();
-              const compendium = game.packs.get(html.find("[name='compendium']").val());
-              compendium.index.forEach((k) => {
-                if (found.has(k.img)) {
-                  duplicates.add(k.img);
+        new Dialog({
+          title: `Compendiums`,
+          content: content,
+          buttons: {
+            yes: {
+              icon: "<i class='far fa-search'></i>",
+              label: 'Search for Duplicates',
+              callback: (dlgHtml) => {
+                const found = new Set();
+                const duplicates = new Set();
+                const compendium = game.packs.get(dlgHtml.querySelector("[name='compendium']").value);
+                compendium.index.forEach((k) => {
+                  if (found.has(k.img)) duplicates.add(k.img);
+                  found.add(k.img);
+                });
+                if (!duplicates.size) {
+                  ui.notifications.info('No duplicates found in: ' + compendium.title);
                 }
-                found.add(k.img);
-              });
-              if (!duplicates.size) {
-                ui.notifications.info('No duplicates found in: ' + compendium.title);
-              }
-
-              const images = Array.from(duplicates).map((img) => {
-                return { path: img, name: getFileName(img) };
-              });
-              const allImages = new Map();
-              allImages.set('Duplicates', images);
-
-              showArtSelect('Duplicates', {
-                allImages,
-                callback: (img) => {
-                  $(event.target).closest('li').find('[name="image"]').val(img);
-                  $(event.target).closest('li').find('img').attr('src', img);
-                },
-              });
+                const images = Array.from(duplicates).map((img) => {
+                  return { path: img, name: getFileName(img) };
+                });
+                const allImages = new Map();
+                allImages.set('Duplicates', images);
+                showArtSelect('Duplicates', {
+                  allImages,
+                  callback: (img) => {
+                    const imgInput = li.querySelector('[name="image"]');
+                    if (imgInput) imgInput.value = img;
+                    const imgEl = li.querySelector('img');
+                    if (imgEl) imgEl.src = img;
+                  },
+                });
+              },
             },
           },
-        },
-        default: 'yes',
-      }).render(true);
+          default: 'yes',
+        }).render(true);
+      }
     });
   }
 
-  async _updateObject(event, formData) {
+  static async #onSubmit(event, form, formData) {
+    const app = this;
     updateSettings({
-      compendiumMapper: { missingImages: this._processFormData(formData) },
+      compendiumMapper: { missingImages: app._processFormData(formData.object) },
     });
   }
 }

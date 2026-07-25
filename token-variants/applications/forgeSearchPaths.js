@@ -1,28 +1,31 @@
 import { TVA_CONFIG, updateSettings } from '../scripts/settings.js';
 import { showPathSelectCategoryDialog, showPathSelectConfigForm } from './dialogs.js';
 
-export class ForgeSearchPaths extends FormApplication {
+export class ForgeSearchPaths extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor() {
-    super({}, {});
+    super({});
+    this.object = {};
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-search-paths',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/forgeSearchPaths.html',
-      resizable: true,
-      minimizable: false,
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-search-paths',
+    classes: ['sheet'],
+    position: { width: 592, height: 'auto' },
+    window: { resizable: true, minimizable: false, title: game.i18n.localize('token-variants.settings.search-paths.Name') },
+    form: {
+      handler: ForgeSearchPaths.#onSubmit,
+      submitOnChange: false,
       closeOnSubmit: false,
-      title: game.i18n.localize('token-variants.settings.search-paths.Name'),
-      width: 592,
-      height: 'auto',
-      scrollY: ['ol.token-variant-table'],
-      dragDrop: [{ dragSelector: null, dropSelector: null }],
-    });
-  }
+    },
+  };
 
-  async getData(options) {
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/forgeSearchPaths.html' },
+  };
+
+  async _prepareContext(options) {
     if (!this.object.paths) this.object.paths = await this._getPaths();
 
     const paths = this.object.paths.map((path) => {
@@ -35,10 +38,7 @@ export class ForgeSearchPaths extends FormApplication {
       return r;
     });
 
-    const data = super.getData(options);
-    data.paths = paths;
-    data.apiKey = this.apiKey;
-    return data;
+    return { paths, apiKey: this.apiKey };
   }
 
   async _getPaths() {
@@ -48,35 +48,39 @@ export class ForgeSearchPaths extends FormApplication {
     return forgePaths[this.userId]?.paths || [];
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find('a.create-path').click(this._onCreatePath.bind(this));
-    $(html).on('click', 'a.select-category', showPathSelectCategoryDialog.bind(this));
-    $(html).on('click', 'a.select-config', showPathSelectConfigForm.bind(this));
-    html.find('a.delete-path').click(this._onDeletePath.bind(this));
-    html.find('button.reset').click(this._onReset.bind(this));
-    html.find('button.update').click(this._onUpdate.bind(this));
-    $(html).on('click', '.path-image.source-icon a', this._onBrowseFolder.bind(this));
+  _onRender(context, options) {
+    const el = this.element;
+
+    el.querySelector('a.create-path')?.addEventListener('click', this._onCreatePath.bind(this));
+    el.querySelector('a.delete-path')?.addEventListener('click', this._onDeletePath.bind(this));
+    el.querySelector('button.reset')?.addEventListener('click', this._onReset.bind(this));
+    el.querySelector('button.update')?.addEventListener('click', this._onUpdate.bind(this));
+
+    el.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target.closest('a.select-category')) {
+        showPathSelectCategoryDialog.call(this, event);
+      } else if (target.closest('a.select-config')) {
+        showPathSelectConfigForm.call(this, event);
+      } else if (target.closest('.path-image.source-icon a')) {
+        this._onBrowseFolder(event);
+      }
+    });
   }
 
-  /**
-   * Open a FilePicker so the user can select a local folder to use as an image source
-   */
   async _onBrowseFolder(event) {
-    const pathInput = $(event.target).closest('.table-row').find('.path-text input');
+    const row = event.target.closest('.table-row');
+    const pathInput = row.querySelector('.path-text input');
 
     new foundry.applications.apps.FilePicker.implementation({
       type: 'folder',
       activeSource: 'forgevtt',
-      current: pathInput.val(),
+      current: pathInput.value,
       callback: (path, fp) => {
         if (fp.activeSource !== 'forgevtt') {
           ui.notifications.warn("Token Variant Art: Only 'Assets Library' paths are supported");
         } else {
-          pathInput.val(fp.result.target);
+          pathInput.value = fp.result.target;
         }
       },
     }).render(true);
@@ -84,7 +88,7 @@ export class ForgeSearchPaths extends FormApplication {
 
   async _onCreatePath(event) {
     event.preventDefault();
-    await this._onSubmit(event);
+    await this.submit();
 
     this.object.paths.push({
       text: '',
@@ -97,7 +101,7 @@ export class ForgeSearchPaths extends FormApplication {
 
   async _onDeletePath(event) {
     event.preventDefault();
-    await this._onSubmit(event);
+    await this.submit();
 
     const li = event.currentTarget.closest('.table-row');
     this.object.paths.splice(li.dataset.index, 1);
@@ -112,15 +116,16 @@ export class ForgeSearchPaths extends FormApplication {
 
   async _onUpdate(event) {
     event.preventDefault();
-    await this._onSubmit(event);
+    await this.submit();
     this._updatePaths();
   }
 
-  async _updateObject(event, formData) {
-    const expanded = foundry.utils.expandObject(formData);
+  static async #onSubmit(event, form, formData) {
+    const app = this;
+    const expanded = foundry.utils.expandObject(formData.object);
     expanded.paths = expanded.hasOwnProperty('paths') ? Object.values(expanded.paths) : [];
     expanded.paths.forEach((path, index) => {
-      this.object.paths[index] = {
+      app.object.paths[index] = {
         text: path.text,
         cache: path.cache,
         share: path.share,
@@ -131,16 +136,15 @@ export class ForgeSearchPaths extends FormApplication {
         try {
           path.config = JSON.parse(path.config);
           if (!foundry.utils.isEmpty(path.config)) {
-            this.object.paths[index].config = path.config;
+            app.object.paths[index].config = path.config;
           }
         } catch (e) {}
       }
     });
-    this.apiKey = expanded.apiKey;
+    app.apiKey = expanded.apiKey;
   }
 
   _cleanPaths() {
-    // Cleanup empty and duplicate paths
     let uniquePaths = new Set();
     let paths = this.object.paths.filter((path) => {
       if (!path.text || uniquePaths.has(path.text)) return false;
@@ -161,7 +165,6 @@ export class ForgeSearchPaths extends FormApplication {
       if (game.user.isGM) {
         updateSettings({ forgeSearchPaths: forgePaths });
       } else {
-        // Workaround for forgeSearchPaths setting to be updated by non-GM clients
         const message = {
           handlerName: 'forgeSearchPaths',
           args: forgePaths,
@@ -173,7 +176,7 @@ export class ForgeSearchPaths extends FormApplication {
   }
 
   async close(options = {}) {
-    await this._onSubmit(event);
+    await this.submit();
     this._updatePaths();
     return super.close(options);
   }
