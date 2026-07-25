@@ -56,12 +56,12 @@ async function tvaButtonClick(event) {
   if (FULL_ACCESS && event.button === 2) {
     if (!palette || !palette.classList.contains('contextmenu')) {
       palette?.remove();
-      palette = (await renderContextMenuPalette(this.document))[0];
+      palette = await renderContextMenuPalette(this.document);
       this.element.querySelector('.col.right').appendChild(palette);
     }
   } else if (!palette || palette.classList.contains('contextmenu')) {
     palette?.remove();
-    palette = (await renderPalette(this.document))[0];
+    palette = await renderPalette(this.document);
     this.element.querySelector('.col.right').appendChild(palette);
   }
 
