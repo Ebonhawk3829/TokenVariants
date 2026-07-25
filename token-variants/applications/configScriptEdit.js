@@ -1,68 +1,64 @@
-export default class EditScriptConfig extends FormApplication {
+export default class EditScriptConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor(script, callback) {
-    super({}, {});
+    super({});
     this.script = script;
     this.callback = callback;
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-config-script-edit',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/configScriptEdit.html',
-      resizable: true,
-      minimizable: false,
-      title: 'Scripts',
-      width: 640,
-      height: 640,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-config-script-edit',
+    classes: ['sheet'],
+    position: { width: 640, height: 640 },
+    window: { resizable: true, minimizable: false, title: 'Scripts' },
+    form: {
+      handler: EditScriptConfig.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    const data = super.getData(options);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/configScriptEdit.html' },
+  };
 
+  async _prepareContext(options) {
     const script = this.script ? this.script : {};
-    data.hasScript = !foundry.utils.isEmpty(script);
-    data.onApply = script.onApply;
-    data.onRemove = script.onRemove;
-    data.macroOnApply = script.macroOnApply;
-    data.macroOnRemove = script.macroOnRemove;
-
-    data.tmfxPreset = script.tmfxPreset;
-    data.tmfxActive = game.modules.get('tokenmagic')?.active;
+    const data = {
+      hasScript: !foundry.utils.isEmpty(script),
+      onApply: script.onApply,
+      onRemove: script.onRemove,
+      macroOnApply: script.macroOnApply,
+      macroOnRemove: script.macroOnRemove,
+      tmfxPreset: script.tmfxPreset,
+      tmfxActive: game.modules.get('tokenmagic')?.active,
+      ceActive: game.modules.get('dfreds-convenient-effects')?.active,
+      ceEffect: script.ceEffect ?? { apply: true, remove: true },
+      macros: game.macros.map((m) => m.name),
+    };
     if (data.tmfxActive) {
       data.tmfxPresets = TokenMagic.getPresets().map((p) => p.name);
     }
-
-    data.ceActive = game.modules.get('dfreds-convenient-effects')?.active;
     if (data.ceActive) {
-      data.ceEffect = script.ceEffect ?? { apply: true, remove: true };
       data.ceEffects = game.dfreds.effectInterface.findEffects().map((ef) => ef.name);
     }
-
-    data.macros = game.macros.map((m) => m.name);
-
     return data;
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    // Override 'Tab' key to insert spaces
-    html.on('keydown', '.command textarea', function (e) {
+  _onRender(context, options) {
+    const el = this.element;
+    el.querySelector('.command textarea')?.addEventListener('keydown', function (e) {
       if (e.key === 'Tab' && !e.shiftKey) {
         e.preventDefault();
-        var start = this.selectionStart;
-        var end = this.selectionEnd;
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
         this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
         this.selectionStart = this.selectionEnd = start + 2;
         return false;
       }
     });
-
-    html.find('.remove').click(this._onRemove.bind(this));
+    el.querySelector('.remove')?.addEventListener('click', this._onRemove.bind(this));
   }
 
   async _onRemove(event) {
@@ -70,28 +66,24 @@ export default class EditScriptConfig extends FormApplication {
     this.close();
   }
 
-  /**
-   * @param {Event} event
-   * @param {Object} formData
-   */
-  async _updateObject(event, formData) {
-    formData = foundry.utils.expandObject(formData);
+  static async #onSubmit(event, form, formData) {
+    let data = foundry.utils.expandObject(formData.object);
     ['onApply', 'onRemove', 'macroOnApply', 'macroOnRemove'].forEach((k) => {
-      formData[k] = formData[k].trim();
+      data[k] = data[k].trim();
     });
-    if (formData.ceEffect?.name) formData.ceEffect.name = formData.ceEffect.name.trim();
+    if (data.ceEffect?.name) data.ceEffect.name = data.ceEffect.name.trim();
 
     if (
-      !formData.onApply &&
-      !formData.onRemove &&
-      !formData.tmfxPreset &&
-      !formData.ceEffect.name &&
-      !formData.macroOnApply &&
-      !formData.macroOnRemove
+      !data.onApply &&
+      !data.onRemove &&
+      !data.tmfxPreset &&
+      !data.ceEffect.name &&
+      !data.macroOnApply &&
+      !data.macroOnRemove
     ) {
       if (this.callback) this.callback(null);
     } else {
-      if (this.callback) this.callback(formData);
+      if (this.callback) this.callback(data);
     }
   }
 }

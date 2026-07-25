@@ -1,6 +1,8 @@
-export default class FlagsConfig extends FormApplication {
+export default class FlagsConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor(obj) {
-    super({}, {});
+    super({});
     if (obj instanceof foundry.canvas.placeables.Tile) {
       this.objectToFlag = obj.document;
       this.isTile = true;
@@ -9,78 +11,84 @@ export default class FlagsConfig extends FormApplication {
     }
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-token-flags',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/flagsConfig.html',
-      resizable: true,
-      minimizable: false,
-      title: 'Flags',
-      width: 500,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-token-flags',
+    classes: ['sheet'],
+    position: { width: 500 },
+    window: { resizable: true, minimizable: false, title: 'Flags' },
+    form: {
+      handler: FlagsConfig.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    const data = super.getData(options);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/flagsConfig.html' },
+  };
+
+  async _prepareContext(options) {
     const popups = this.objectToFlag.getFlag('token-variants', 'popups');
     const disableNameSearch = this.objectToFlag.getFlag('token-variants', 'disableNameSearch');
     const directory = this.objectToFlag.getFlag('token-variants', 'directory') || {};
 
-    return foundry.utils.mergeObject(data, {
-      popups: popups,
+    return {
+      popups,
       popupsSetFlag: popups != null,
-      disableNameSearch: disableNameSearch,
+      disableNameSearch,
       disableNameSearchSetFlag: disableNameSearch != null,
       directory: directory.path,
       directorySource: directory.source,
       directorySetFlag: !foundry.utils.isEmpty(directory),
       tile: this.isTile,
-    });
+    };
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find('.controlFlag').click((e) => {
-      $(e.target).siblings('.flag').prop('disabled', !e.target.checked);
+  _onRender(context, options) {
+    const el = this.element;
+
+    el.querySelectorAll('.controlFlag').forEach((cb) => {
+      cb.addEventListener('click', (e) => {
+        const flag = e.target.parentElement.querySelector('.flag');
+        if (flag) flag.disabled = !e.target.checked;
+      });
     });
-    html.find('.directory-fp').click((event) => {
+
+    el.querySelector('.directory-fp')?.addEventListener('click', (event) => {
       new foundry.applications.apps.FilePicker.implementation({
         type: 'folder',
         activeSource: 'data',
         callback: (path, fp) => {
-          html.find('[name="directory"]').val(fp.result.target);
-          $(event.target)
-            .closest('button')
-            .attr('title', 'Directory: ' + fp.result.target);
-          const sourceEl = html.find('[name="directorySource"]');
-          if (fp.activeSource === 's3') {
-            sourceEl.val(`s3:${fp.result.bucket}`);
-          } else {
-            sourceEl.val(fp.activeSource);
+          const dirInput = el.querySelector('[name="directory"]');
+          if (dirInput) dirInput.value = fp.result.target;
+          const btn = event.target.closest('button');
+          if (btn) btn.title = 'Directory: ' + fp.result.target;
+          const sourceEl = el.querySelector('[name="directorySource"]');
+          if (sourceEl) {
+            if (fp.activeSource === 's3') {
+              sourceEl.value = `s3:${fp.result.bucket}`;
+            } else {
+              sourceEl.value = fp.activeSource;
+            }
           }
         },
       }).render(true);
     });
   }
 
-  /**
-   * @param {Event} event
-   * @param {Object} formData
-   */
-  async _updateObject(event, formData) {
-    if ('directory' in formData) {
-      formData.directory = { path: formData.directory, source: formData.directorySource };
+  static async #onSubmit(event, form, formData) {
+    const app = this;
+    const data = formData.object;
+
+    if ('directory' in data) {
+      data.directory = { path: data.directory, source: data.directorySource };
     }
 
     ['popups', 'disableNameSearch', 'directory'].forEach((flag) => {
-      if (flag in formData) {
-        this.objectToFlag.setFlag('token-variants', flag, formData[flag]);
+      if (flag in data) {
+        app.objectToFlag.setFlag('token-variants', flag, data[flag]);
       } else {
-        this.objectToFlag.unsetFlag('token-variants', flag);
+        app.objectToFlag.unsetFlag('token-variants', flag);
       }
     });
   }

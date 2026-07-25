@@ -1,54 +1,58 @@
-export default class RandomizerConfig extends FormApplication {
+export default class RandomizerConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor(obj) {
-    super({}, {});
+    super({});
     this.actor = game.actors.get(obj.actorId);
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-token-flags',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/randomizerConfig.html',
-      resizable: true,
-      minimizable: false,
-      title: 'Randomizer',
-      width: 500,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-token-flags',
+    classes: ['sheet'],
+    position: { width: 500 },
+    window: { resizable: true, minimizable: false, title: 'Randomizer' },
+    form: {
+      handler: RandomizerConfig.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    const data = super.getData(options);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/randomizerConfig.html' },
+  };
+
+  async _prepareContext(options) {
     const settings = this.actor.getFlag('token-variants', 'randomizerSettings') || {};
-    data.randomizer = settings;
-    data.hasSettings = !foundry.utils.isEmpty(settings);
-    data.nameForgeActive = game.modules.get('nameforge')?.active;
+    const data = {
+      randomizer: settings,
+      hasSettings: !foundry.utils.isEmpty(settings),
+      nameForgeActive: game.modules.get('nameforge')?.active,
+    };
     if (data.randomizer.nameForge?.models && Array.isArray(data.randomizer.nameForge.models)) {
       data.randomizer.nameForge.models = data.randomizer.nameForge.models.join(',');
     }
     return data;
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find('.selectNameForgeModels').click(this._selectNameForgeModels.bind(this));
+  _onRender(context, options) {
+    const el = this.element;
 
-    // Can't have both tokenName and actorName checkboxes checked at the same time
-    const tokenName = html.find('input[name="randomizer.tokenName"]');
-    const actorName = html.find('input[name="randomizer.actorName"]');
-    tokenName.change(() => {
-      if (tokenName.is(':checked')) actorName.prop('checked', false);
+    el.querySelector('.selectNameForgeModels')?.addEventListener('click', this._selectNameForgeModels.bind(this));
+
+    const tokenName = el.querySelector('input[name="randomizer.tokenName"]');
+    const actorName = el.querySelector('input[name="randomizer.actorName"]');
+    tokenName?.addEventListener('change', () => {
+      if (tokenName.checked) actorName.checked = false;
     });
-    actorName.change(() => {
-      if (actorName.is(':checked')) tokenName.prop('checked', false);
+    actorName?.addEventListener('change', () => {
+      if (actorName.checked) tokenName.checked = false;
     });
   }
 
   _selectNameForgeModels(event) {
-    const inputSelected = $(event.target).siblings('input');
-    const selected = inputSelected.val().split(',');
+    const inputSelected = event.target.parentElement.querySelector('input');
+    const selected = inputSelected.value.split(',');
     const genCheckbox = function (name, value) {
       return `
       <div class="form-group">
@@ -81,29 +85,26 @@ export default class RandomizerConfig extends FormApplication {
           label: `Select`,
           callback: async (html) => {
             const selectedModels = [];
-            html.find('input[type="checkbox"]').each(function () {
-              if (this.checked) selectedModels.push(this.value);
+            html.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+              if (cb.checked) selectedModels.push(cb.value);
             });
-            inputSelected.val(selectedModels.join(','));
+            inputSelected.value = selectedModels.join(',');
           },
         },
       },
     }).render(true);
   }
 
-  /**
-   * @param {Event} event
-   * @param {Object} formData
-   */
-  async _updateObject(event, formData) {
+  static async #onSubmit(event, form, formData) {
+    const app = this;
     if (event.submitter.value === 'remove') {
-      await this.actor.unsetFlag('token-variants', 'randomizerSettings');
+      await app.actor.unsetFlag('token-variants', 'randomizerSettings');
     } else {
-      const expanded = foundry.utils.expandObject(formData);
+      const expanded = foundry.utils.expandObject(formData.object);
       if (expanded.randomizer.nameForge?.models) {
         expanded.randomizer.nameForge.models = expanded.randomizer.nameForge.models.split(',');
       }
-      this.actor.setFlag('token-variants', 'randomizerSettings', expanded.randomizer);
+      app.actor.setFlag('token-variants', 'randomizerSettings', expanded.randomizer);
     }
   }
 }

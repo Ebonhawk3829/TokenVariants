@@ -2,30 +2,35 @@ import { TVA_CONFIG, updateSettings } from '../scripts/settings.js';
 import { SEARCH_TYPE, decodeURISafely } from '../scripts/utils.js';
 import { insertArtSelectButton } from './artSelect.js';
 
-export default class UserList extends FormApplication {
+export default class UserList extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor(object, img, regenStyle) {
-    super({}, {});
+    super({});
     this.object = object;
     this.img = img;
     this.regenStyle = regenStyle;
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-user-list',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/userList.html',
-      resizable: false,
-      minimizable: false,
-      title: 'User To Image',
-      width: 300,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-user-list',
+    classes: ['sheet'],
+    position: { width: 300 },
+    window: { resizable: false, minimizable: false, title: 'User To Image' },
+    form: {
+      handler: UserList.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    const data = super.getData(options);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/userList.html' },
+  };
+
+  async _prepareContext(options) {
     const mappings = this.object.document.getFlag('token-variants', 'userMappings') || {};
-    let users = [];
+    const users = [];
     game.users.forEach((user) => {
       users.push({
         avatar: user.avatar,
@@ -35,50 +40,46 @@ export default class UserList extends FormApplication {
         color: user.color,
       });
     });
-    data.users = users;
-    data.invisibleImage = TVA_CONFIG.invisibleImage;
-    return data;
+    return { users, invisibleImage: TVA_CONFIG.invisibleImage };
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    insertArtSelectButton(html, 'invisibleImage', {
+  _onRender(context, options) {
+    insertArtSelectButton(this.element, 'invisibleImage', {
       search: 'Invisible Image',
       searchType: SEARCH_TYPE.TOKEN,
     });
   }
 
-  async _updateObject(event, formData) {
-    const mappings = this.object.document.getFlag('token-variants', 'userMappings') || {};
+  static async #onSubmit(event, form, formData) {
+    const app = this;
+    const mappings = app.object.document.getFlag('token-variants', 'userMappings') || {};
+    const data = formData.object;
 
-    if (formData.invisibleImage !== TVA_CONFIG.invisibleImage) {
-      updateSettings({ invisibleImage: decodeURISafely(formData.invisibleImage) });
+    if (data.invisibleImage !== TVA_CONFIG.invisibleImage) {
+      updateSettings({ invisibleImage: decodeURISafely(data.invisibleImage) });
     }
-    delete formData.invisibleImage;
+    delete data.invisibleImage;
 
-    const affectedImages = [this.img];
+    const affectedImages = [app.img];
 
-    for (const [userId, apply] of Object.entries(formData)) {
+    for (const [userId, apply] of Object.entries(data)) {
       if (apply) {
-        if (mappings[userId] && mappings[userId] !== this.img) affectedImages.push(mappings[userId]);
-        mappings[userId] = this.img;
-      } else if (mappings[userId] === this.img) {
+        if (mappings[userId] && mappings[userId] !== app.img) affectedImages.push(mappings[userId]);
+        mappings[userId] = app.img;
+      } else if (mappings[userId] === app.img) {
         delete mappings[userId];
         mappings['-=' + userId] = null;
       }
     }
 
     if (Object.keys(mappings).filter((userId) => !userId.startsWith('-=')).length === 0) {
-      await this.object.document.unsetFlag('token-variants', 'userMappings');
+      await app.object.document.unsetFlag('token-variants', 'userMappings');
     } else {
-      await this.object.document.setFlag('token-variants', 'userMappings', mappings);
+      await app.object.document.setFlag('token-variants', 'userMappings', mappings);
     }
 
     for (const img of affectedImages) {
-      this.regenStyle(this.object, img);
+      app.regenStyle(app.object, img);
     }
   }
 }
