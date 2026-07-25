@@ -1,6 +1,5 @@
-<form>
-    <!-- Navigation Tabs -->
-    <nav class="sheet-tabs tabs tva-setting-nav" data-group="primary-tabs">
+<!-- Navigation Tabs -->
+    <nav class="sheet-tabs tabs tva-setting-nav" data-group="primary">
       {{#if enabledTabs.searchPaths}}<a class="item" data-tab="searchPaths"><i class="fas fa-search"></i> Search Paths</a>{{/if}}
       {{#if enabledTabs.searchFilters}}<a class="item" data-tab="searchFilters"><i class="fas fa-filter"></i> Search Filters</a>{{/if}}
       {{#if enabledTabs.searchAlgorithm}}<a class="item" data-tab="searchAlgorithm"><i class="fas fa-plug"></i> Search Algorithm</a>{{/if}}
@@ -18,7 +17,7 @@
     <section class="content">
         <!-- SEARCH PATHS -->
         {{#if enabledTabs.searchPaths}}
-        <div class="tab" data-tab="searchPaths" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="searchPaths" data-group="primary">
             <ol class="token-variant-table">
                 <li class="table-row table-header flexrow">
                   <div class="path-image">
@@ -80,11 +79,10 @@
                 json | path/to/folder/data.json<br />
                 imgur | galleryId
               </p>
-        </div>
-        {{/if}}
+        </section>{{/if}}
         <!-- SEARCH FILTERS -->
         {{#if enabledTabs.searchFilters}}
-        <div class="tab" data-tab="searchFilters" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="searchFilters" data-group="primary">
           <p class="notes">Define filters for each image category. Images will be limited to files that include/exclude these pieces of text or match a regular expression.</p>
 
           <hr>
@@ -109,12 +107,11 @@
           </div>
           <hr />
           {{/each}}
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- SEARCH ALGORITHM -->
         {{#if enabledTabs.searchAlgorithm}}
-        <div class="tab" data-tab="searchAlgorithm" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="searchAlgorithm" data-group="primary">
           <div class="form-group">
             <label>{{localize "token-variants.settings.keywords-search.Name"}}</label>
             <div class="form-fields">
@@ -202,12 +199,11 @@
               </div>
             </fieldset>
           </fieldset>
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- Randomizer -->
         {{#if enabledTabs.randomizer}}
-        <div class="tab" data-tab="randomizer" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="randomizer" data-group="primary">
             <h2>{{localize "token-variants.common.randomize"}}</h2>
 
             <div class="form-group">
@@ -309,12 +305,11 @@
               <h4>{{localize "token-variants.settings.randomizer.window.pop-up-if-randomization-disabled"}}</h4>
               <input type="checkbox" name="randomizer.popupOnDisable" data-dtype="Boolean" {{#if randomizer.popupOnDisable}}checked{{/if}}>
             </div>
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- Features -->
         {{#if enabledTabs.features}}
-        <div class="tab token-variants-permissions" data-tab="features" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="features" data-group="primary">
           <p class="notes">Fully turn-off module features.</p>
 
           <header class="table-header flexrow">
@@ -338,12 +333,11 @@
               <p class="hint"></p>
             </li>
           </ul>
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- Pop-up -->
         {{#if enabledTabs.popup}}
-        <div class="tab token-variants-popup-settings" data-tab="popup" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="popup" data-group="primary">
           <div class="form-group">
             <label>{{localize "token-variants.settings.pop-up.window.two-pop-ups.Name"}}</label>
             <input type="checkbox" name="popup.twoPopups" data-dtype="Boolean" {{#if popup.twoPopups}}checked{{/if}}>
@@ -390,12 +384,11 @@
               </div>
             </li>
           </ul>
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- Permissions -->
         {{#if enabledTabs.permissions}}
-        <div class="tab token-variants-permissions" data-tab="permissions" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="permissions" data-group="primary">
           <p class="notes">Configure which User role has permission to access which module features.</p>
 
           <header class="table-header flexrow">
@@ -473,12 +466,11 @@
               <p class="hint">Allow players with this role to configure image mappings to status effects, visibility and combat states. ('Use File Browser' or 'Token Configuration Art Select' required to select images)</p>
             </li>
           </ul>
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- World HUD -->
         {{#if enabledTabs.worldHud}}
-        <div class="tab" data-tab="worldHud" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="worldHud" data-group="primary">
           <h2>World Settings</h2>
 
           <div class="form-group">
@@ -573,14 +565,12 @@
             <p class="notes">
               {{localize "token-variants.settings.token-hud.window.disable-if-token-hud-wildcard-active.Hint"}}
             </p>
-          </div>
-          {{/if}}
-        </div>
-        {{/if}}
+          </section>{{/if}}
+        </section>{{/if}}
 
         <!-- Active Effects -->
         {{#if enabledTabs.activeEffects}}
-        <div class="tab" data-tab="activeEffects" data-group="primary-tabs" style="overflow: auto; max-height: 900px;">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="activeEffects" data-group="primary" style="overflow: auto; max-height: 900px;">
 
           <fieldset>
             <legend>Mappings</legend>
@@ -747,12 +737,11 @@
 
           </fieldset>
 
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
         <!-- Misc -->
         {{#if enabledTabs.misc}}
-        <div class="tab" data-tab="misc" data-group="primary-tabs">
+        <section class="tab {{tabs.primary.cssClass}}" data-tab="misc" data-group="primary">
 
           <fieldset>
             <legend>Image Cache</legend>
@@ -866,8 +855,7 @@
             <p class="notes">Additional types that will be used by the module to group images on.</p>
           </div>
 
-        </div>
-        {{/if}}
+        </section>{{/if}}
 
     </section>
 
@@ -877,4 +865,3 @@
             <i class="far fa-save"></i> Save Changes
         </button>
     </footer>
-</form>

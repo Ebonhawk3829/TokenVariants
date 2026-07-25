@@ -47,15 +47,34 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     classes: ['sheet'],
     position: { width: 700, height: 'auto' },
     window: { resizable: false, minimizable: false, title: 'Configure Settings' },
-    form: {
-      handler: ConfigureSettings._onSubmitV2,
-      submitOnChange: false,
-      closeOnSubmit: true,
+  };
+
+  static TABS = {
+    primary: {
+      tabs: [
+        { id: "searchPaths", group: "primary", label: "Search Paths" },
+        { id: "searchFilters", group: "primary", label: "Search Filters" },
+        { id: "searchAlgorithm", group: "primary", label: "Search Algorithm" },
+        { id: "randomizer", group: "primary", label: "Randomizer" },
+        { id: "features", group: "primary", label: "Features" },
+        { id: "popup", group: "primary", label: "Pop-up" },
+        { id: "permissions", group: "primary", label: "Permissions" },
+        { id: "worldHud", group: "primary", label: "Token HUD" },
+        { id: "activeEffects", group: "primary", label: "Effects" },
+        { id: "misc", group: "primary", label: "Misc" },
+      ],
+      initial: "searchPaths",
     },
   };
 
   static PARTS = {
-    form: { template: 'modules/token-variants/templates/configureSettings.html' },
+    main: {
+      template: 'modules/token-variants/templates/configureSettings.html',
+      form: {
+        handler: ConfigureSettings._onSubmitV2,
+        closeOnSubmit: true,
+      },
+    },
   };
 
   _pathIcon(source) {
