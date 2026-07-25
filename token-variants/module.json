@@ -4,7 +4,7 @@
   "description": "Searches a customizable list of directories and displays art variants for tokens/actors through pop-ups and a new Token HUD button. Variants can be individually shared with players allowing them to switch out their token art on the fly.",
   "version": "6.1.3",
   "compatibility": {
-    "minimum": 13,
+    "minimum": 14,
     "verified": 14
   },
   "download": "https://github.com/Aedif/TokenVariants/releases/download/6.1.3/token-variants.zip",
