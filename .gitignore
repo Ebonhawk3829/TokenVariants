@@ -6,3 +6,4 @@ node_modules/*
 package-lock.json
 token-variants/token-variants-cache.json
 token-variants/bundle/*
+release/*
