@@ -24,24 +24,39 @@ export function registerArtSelectButtonHooks() {
   // Insert buttons
   if (TVA_CONFIG.permissions.image_path_button[game.user.role]) {
     registerHook(feature_id, 'renderTileConfig', _modTileConfig);
-    registerHook(feature_id, 'renderMeasuredTemplateConfig', _modTemplateConfig);
+    registerHook(feature_id, 'renderTileConfigV2', _modTileConfig);
     registerHook(feature_id, 'renderTokenConfig', _modTokenConfig);
+    registerHook(feature_id, 'renderTokenConfigV2', _modTokenConfig);
     registerHook(feature_id, 'renderPrototypeTokenConfig', _modTokenConfig);
+    registerHook(feature_id, 'renderPrototypeTokenConfigV2', _modTokenConfig);
     registerHook(feature_id, 'renderDrawingConfig', _modDrawingConfig);
+    registerHook(feature_id, 'renderDrawingConfigV2', _modDrawingConfig);
     registerHook(feature_id, 'renderNoteConfig', _modNoteConfig);
+    registerHook(feature_id, 'renderNoteConfigV2', _modNoteConfig);
     registerHook(feature_id, 'renderSceneConfig', _modSceneConfig);
+    registerHook(feature_id, 'renderSceneConfigV2', _modSceneConfig);
     registerHook(feature_id, 'renderMacroConfig', _modMacroConfig);
+    registerHook(feature_id, 'renderMacroConfigV2', _modMacroConfig);
     registerHook(feature_id, 'renderActiveEffectConfig', _modActiveEffectConfig);
+    registerHook(feature_id, 'renderActiveEffectConfigV2', _modActiveEffectConfig);
   } else {
     [
       'renderTileConfig',
-      'renderMeasuredTemplateConfig',
+      'renderTileConfigV2',
       'renderTokenConfig',
+      'renderTokenConfigV2',
       'renderPrototypeTokenConfig',
+      'renderPrototypeTokenConfigV2',
       'renderDrawingConfig',
+      'renderDrawingConfigV2',
       'renderNoteConfig',
+      'renderNoteConfigV2',
       'renderSceneConfig',
-      `renderActiveEffectConfig`,
+      'renderSceneConfigV2',
+      'renderMacroConfig',
+      'renderMacroConfigV2',
+      'renderActiveEffectConfig',
+      'renderActiveEffectConfigV2',
     ].forEach((name) => unregisterHook(feature_id, name));
   }
 }
@@ -51,10 +66,6 @@ function _modTokenConfig(config, html) {
     search: config.document?.name ?? config.token?.name ?? 'Token',
     searchType: SEARCH_TYPE.TOKEN,
   });
-}
-
-function _modTemplateConfig(config, html) {
-  insertArtSelectButton(html, 'texture', { search: 'Template', searchType: SEARCH_TYPE.TILE });
 }
 
 function _modDrawingConfig(config, html) {

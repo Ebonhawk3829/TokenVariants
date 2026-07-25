@@ -456,23 +456,29 @@ export class ArtSelect extends FormApplication {
 }
 
 export function insertArtSelectButton(html, target, { search = '', searchType = SEARCH_TYPE.TOKEN } = {}) {
-  const button = $(`<button 
-      class="token-variants-image-select-button" 
-      type="button"
-      data-type="imagevideo"
-      data-target="${target}"
-      title="${game.i18n.localize('token-variants.windows.art-select.select-variant')}">
-        <i class="fas fa-images"></i>
-      </button>`);
-  button.on('click', () => {
+  const root = html?.jquery ? html[0] : html;
+
+  const button = document.createElement('button');
+  button.className = 'token-variants-image-select-button';
+  button.type = 'button';
+  button.dataset.type = 'imagevideo';
+  button.dataset.target = target;
+  button.title = game.i18n.localize('token-variants.windows.art-select.select-variant');
+  button.innerHTML = '<i class="fas fa-images"></i>';
+
+  button.addEventListener('click', () => {
     showArtSelect(search, {
       callback: (imgSrc, name) => {
-        button.siblings(`[name="${target}"]`).val(imgSrc);
+        const input = root.querySelector(`[name="${target}"]`);
+        if (input) input.value = imgSrc;
       },
       searchType,
     });
   });
-  const input = $(html).find(`[name="${target}"]`);
-  input.after(button);
-  return Boolean(input.length);
+
+  const input = root.querySelector(`[name="${target}"]`);
+  if (input) {
+    input.insertAdjacentElement('afterend', button);
+  }
+  return Boolean(input);
 }
