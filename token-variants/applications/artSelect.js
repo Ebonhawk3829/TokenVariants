@@ -9,7 +9,11 @@ export function addToArtSelectQueue(search, options) {
     search: search,
     options: options,
   });
-  $('button#token-variant-art-clear-queue').html(`Clear Queue (${ArtSelect.queue.length})`).show();
+  const btn = document.querySelector('button#token-variant-art-clear-queue');
+  if (btn) {
+    btn.innerHTML = `Clear Queue (${ArtSelect.queue.length})`;
+    btn.style.display = '';
+  }
 }
 
 export function addToQueue(search, options) {
@@ -21,10 +25,18 @@ export function addToQueue(search, options) {
 
 export function renderFromQueue(force = false) {
   if (!force) {
-    const artSelects = Object.values(ui.windows).filter((app) => app instanceof ArtSelect);
-    if (artSelects.length !== 0) {
-      if (ArtSelect.queue.length !== 0)
-        $('button#token-variant-art-clear-queue').html(`Clear Queue (${ArtSelect.queue.length})`).show();
+    let hasArtSelect = false;
+    for (const app of foundry.applications.instances.values()) {
+      if (app instanceof ArtSelect) { hasArtSelect = true; break; }
+    }
+    if (hasArtSelect) {
+      if (ArtSelect.queue.length !== 0) {
+        const btn = document.querySelector('button#token-variant-art-clear-queue');
+        if (btn) {
+          btn.innerHTML = `Clear Queue (${ArtSelect.queue.length})`;
+          btn.style.display = '';
+        }
+      }
       return;
     }
   }
@@ -47,7 +59,9 @@ function delay(fn, ms) {
   };
 }
 
-export class ArtSelect extends FormApplication {
+export class ArtSelect extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   static queue = [];
 
   static instance = null;
@@ -79,25 +93,11 @@ export class ArtSelect extends FormApplication {
       displayMode = ArtSelect.IMAGE_DISPLAY.NONE,
       multipleSelection = false,
       searchOptions = {},
-    } = {}
+      force = false,
+    } = {},
   ) {
-    let title = game.i18n.localize('token-variants.windows.art-select.select-variant');
-    if (searchType === SEARCH_TYPE.TOKEN)
-      title = game.i18n.localize('token-variants.windows.art-select.select-token-art');
-    else if (searchType === SEARCH_TYPE.PORTRAIT)
-      title = game.i18n.localize('token-variants.windows.art-select.select-portrait-art');
+    super({});
 
-    super(
-      {},
-      {
-        closeOnSubmit: false,
-        width: ArtSelect.WIDTH || 500,
-        height: ArtSelect.HEIGHT || 500,
-        left: ArtSelect.LEFT,
-        top: ArtSelect.TOP,
-        title: title,
-      }
-    );
     this.search = search;
     this.allImages = allImages;
     this.callback = callback;
@@ -111,62 +111,72 @@ export class ArtSelect extends FormApplication {
     this.searchOptions = foundry.utils.mergeObject(searchOptions, getSearchOptions(), {
       overwrite: false,
     });
+    this.force = force;
     ArtSelect.instance = this;
-
-    const constructorName = `ArtSelect`;
-    Object.defineProperty(ArtSelect.prototype.constructor, 'name', { value: constructorName });
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-art-select',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/artSelect.html',
-      resizable: true,
-      minimizable: false,
-    });
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-art-select',
+    classes: ['sheet'],
+    position: { width: 500, height: 500 },
+    window: { resizable: true, minimizable: false },
+    form: {
+      handler: ArtSelect._onSubmitV2,
+      submitOnChange: false,
+      closeOnSubmit: false,
+    },
+  };
+
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/artSelect.html' },
+  };
+
+  get title() {
+    if (this.searchType === SEARCH_TYPE.TOKEN)
+      return game.i18n.localize('token-variants.windows.art-select.select-token-art');
+    else if (this.searchType === SEARCH_TYPE.PORTRAIT)
+      return game.i18n.localize('token-variants.windows.art-select.select-portrait-art');
+    return game.i18n.localize('token-variants.windows.art-select.select-variant');
   }
 
   _getHeaderButtons() {
-    const buttons = super._getHeaderButtons();
-
-    buttons.unshift({
-      label: 'Rebuild Cache',
-      class: 'cache-rebuild',
-      icon: 'fas fa-sync-alt',
-      onclick: async () => {
-        await cacheImages();
-        this._performSearch(this.search, true);
+    const buttons = [
+      {
+        label: 'Rebuild Cache',
+        class: 'cache-rebuild',
+        icon: 'fas fa-sync-alt',
+        onclick: async () => {
+          await cacheImages();
+          this._performSearch(this.search, true);
+        },
       },
-    });
-
-    buttons.unshift({
-      label: 'FilePicker',
-      class: 'file-picker',
-      icon: 'fas fa-file-import fa-fw',
-      onclick: () => {
-        new foundry.applications.apps.FilePicker.implementation({
-          type: 'imagevideo',
-          callback: (path) => {
-            if (!this.preventClose) {
-              this.close();
-            }
-            if (this.callback) {
-              this.callback(path, getFileName(path));
-            }
-          },
-        }).render();
+      {
+        label: 'FilePicker',
+        class: 'file-picker',
+        icon: 'fas fa-file-import fa-fw',
+        onclick: () => {
+          new foundry.applications.apps.FilePicker.implementation({
+            type: 'imagevideo',
+            callback: (path) => {
+              if (!this.preventClose) {
+                this.close();
+              }
+              if (this.callback) {
+                this.callback(path, getFileName(path));
+              }
+            },
+          }).render();
+        },
       },
-    });
-    buttons.unshift({
-      label: 'Image Category',
-      class: 'type',
-      icon: 'fas fa-swatchbook',
-      onclick: () => {
-        if (ArtSelect.instance) ArtSelect.instance._typeSelect();
+      {
+        label: 'Image Category',
+        class: 'type',
+        icon: 'fas fa-swatchbook',
+        onclick: () => {
+          if (ArtSelect.instance) ArtSelect.instance._typeSelect();
+        },
       },
-    });
-
+    ];
     return buttons;
   }
 
@@ -197,8 +207,8 @@ export class ArtSelect extends FormApplication {
     }).render(true);
   }
 
-  async getData(options) {
-    const data = super.getData(options);
+  async _prepareContext(options) {
+    const data = super._prepareContext ? await super._prepareContext(options) : {};
     if (this.doc instanceof Item) {
       data.item = true;
       data.description = this.doc.system?.description?.value ?? '';
@@ -287,8 +297,8 @@ export class ArtSelect extends FormApplication {
   /**
    * @param {JQuery} html
    */
-  activateListeners(html) {
-    super.activateListeners(html);
+  _onRender(context, options) {
+    const html = $(this.element);
     const callback = this.callback;
     const close = () => this.close();
     const object = this.doc;
@@ -423,12 +433,12 @@ export class ArtSelect extends FormApplication {
     }
   }
 
-  setPosition(options = {}) {
-    if (options.width) ArtSelect.WIDTH = options.width;
-    if (options.height) ArtSelect.HEIGHT = options.height;
-    if (options.top) ArtSelect.TOP = options.top;
-    if (options.left) ArtSelect.LEFT = options.left;
-    super.setPosition(options);
+  _updatePosition(position) {
+    if (position.width) ArtSelect.WIDTH = position.width;
+    if (position.height) ArtSelect.HEIGHT = position.height;
+    if (position.top) ArtSelect.TOP = position.top;
+    if (position.left) ArtSelect.LEFT = position.left;
+    super._updatePosition(position);
   }
 
   async close(options = {}) {
@@ -441,11 +451,10 @@ export class ArtSelect extends FormApplication {
       callData.options.force = true;
       showArtSelect(callData.search, callData.options);
     } else {
-      // For some reason there might be app instances that have not closed themselves by this point
-      // If there are, close them now
-      const artSelects = Object.values(ui.windows)
-        .filter((app) => app instanceof ArtSelect)
-        .filter((app) => app.appId !== this.appId);
+      const artSelects = [];
+      for (const app of foundry.applications.instances.values()) {
+        if (app instanceof ArtSelect && app.appId !== this.appId) artSelects.push(app);
+      }
       for (const app of artSelects) {
         app.close();
       }
