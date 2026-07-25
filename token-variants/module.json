@@ -2,7 +2,7 @@
   "id": "token-variants",
   "title": "Token Variant Art",
   "description": "Searches a customizable list of directories and displays art variants for tokens/actors through pop-ups and a new Token HUD button. Variants can be individually shared with players allowing them to switch out their token art on the fly.",
-  "version": "6.1.3",
+  "version": "6.1.4",
   "compatibility": {
     "minimum": 14,
     "verified": 14
