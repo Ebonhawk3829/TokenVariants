@@ -7,9 +7,11 @@ import { sortMappingsToGroups } from './effectMappingForm.js';
 import { getFlagMappings } from '../scripts/settings.js';
 import { Reticle } from '../scripts/reticle.js';
 
-export class OverlayConfig extends FormApplication {
+export class OverlayConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor(config, callback, token, { mapping, global = false, actor } = {}) {
-    super({}, {});
+    super({});
     this.config = config ?? {};
 
     if ((this.config.img || this.config.imgLinked) && !(this.config.img instanceof Array)) {
@@ -25,24 +27,21 @@ export class OverlayConfig extends FormApplication {
     this.actor = actor;
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-overlay-config',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/overlayConfig.html',
-      resizable: false,
-      minimizable: false,
-      title: 'Overlay Settings',
-      width: 500,
-      height: 'auto',
-      //tabs: [{ navSelector: '.sheet-tabs', contentSelector: '.content', initial: 'misc' }, ],
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-overlay-config',
+    classes: ['sheet'],
+    position: { width: 500, height: 'auto' },
+    window: { resizable: false, minimizable: false, title: 'Overlay Settings' },
+    form: {
+      handler: OverlayConfig._onSubmitV2,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-      tabs: [
-        { navSelector: '.tabs[data-group="main"]', contentSelector: 'form', initial: 'misc' },
-        { navSelector: '.tabs[data-group="html"]', contentSelector: '.tab[data-tab="html"]', initial: 'template' },
-      ],
-    });
-  }
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/overlayConfig.html' },
+  };
 
   get title() {
     let scope = 'GLOBAL';
@@ -52,11 +51,86 @@ export class OverlayConfig extends FormApplication {
     return `${this.mapping.label} — [${scope}]`;
   }
 
+  async _prepareContext(options) {
+    const data = {};
+    data.filters = Object.keys(PIXI.filters);
+    data.filters.push('OutlineOverlayFilter');
+    data.filters.sort();
+    data.tmfxActive = game.modules.get('tokenmagic')?.active;
+    if (data.tmfxActive) {
+      data.tmfxPresets = TokenMagic.getPresets().map((p) => p.name);
+      data.filters.unshift('Token Magic FX');
+    }
+    data.filters.unshift('NONE');
+    const settings = foundry.utils.mergeObject(DEFAULT_OVERLAY_CONFIG, this.config, {
+      inplace: false,
+    });
+
+    data.ceActive = game.modules.get('dfreds-convenient-effects')?.active;
+    if (data.ceActive) {
+      data.ceEffects = game.dfreds.effectInterface.findEffects().map((ef) => ef.name);
+    }
+    data.macros = game.macros.map((m) => m.name);
+
+    if (settings.filter !== 'NONE') {
+      const filterOptions = genFilterOptionControls(settings.filter, settings.filterOptions);
+      if (filterOptions) {
+        settings.filterOptions = filterOptions;
+      } else {
+        settings.filterOptions = null;
+      }
+    } else {
+      settings.filterOptions = null;
+    }
+
+    data.users = game.users.map((u) => {
+      return { id: u.id, name: u.name, selected: settings.limitedUsers.includes(u.id) };
+    });
+
+    data.fonts = Object.keys(CONFIG.fontDefinitions).concat(
+      Object.keys(game.settings.get('core', foundry.applications.settings.menus.FontConfig.SETTING)),
+    );
+    data.fontWeights = [
+      'normal', 'bold', 'bolder', 'lighter',
+      '100', '200', '300', '400', '500', '600', '700', '800', '900',
+    ];
+
+    const allMappings = getAllEffectMappings(this.token, true).filter((m) => m.id !== this.config.id);
+    const { groups: groupedMappings } = sortMappingsToGroups(allMappings);
+
+    data.parents = groupedMappings;
+    if (!data.parentID) data.parentID = 'TOKEN';
+    if (!data.anchor) data.anchor = { x: 0.5, y: 0.5 };
+
+    for (const shapeName of Object.keys(OVERLAY_SHAPES)) {
+      await getTemplate(`modules/token-variants/templates/partials/shape${shapeName}.html`);
+    }
+    await getTemplate('modules/token-variants/templates/partials/repeating.html');
+    await getTemplate('modules/token-variants/templates/partials/interpolateColor.html');
+
+    data.allShapes = Object.keys(OVERLAY_SHAPES);
+    data.textAlignmentOptions = [
+      { value: 'left', label: 'Left' },
+      { value: 'center', label: 'Center' },
+      { value: 'right', label: 'Right' },
+      { value: 'justify', label: 'Justify' },
+    ];
+
+    data.vision5e = game.modules.get('vision-5e')?.active;
+
+    if (!('linkDimensionsX' in settings) && settings.linkDimensions) {
+      settings.linkDimensionsX = true;
+      settings.linkDimensionsY = true;
+    }
+
+    return foundry.utils.mergeObject(data, settings);
+  }
+
   /**
    * @param {JQuery} html
    */
-  activateListeners(html) {
-    super.activateListeners(html);
+  _onRender(context, options) {
+    const html = $(this.element);
 
     html.find('.reticle').on('click', (event) => {
       const icons = this.getPreviewIcons();
@@ -147,7 +221,7 @@ export class OverlayConfig extends FormApplication {
       const filterOptions = $(genFilterOptionControls(event.target.value));
       html.find('.filterOptions').append(filterOptions);
       this.setPosition({ height: 'auto' });
-      this.activateListeners(filterOptions);
+      this._onRender(context, options);
     });
 
     html.find('.token-variants-image-select-button').click((event) => {
@@ -499,96 +573,6 @@ export class OverlayConfig extends FormApplication {
     }
   }
 
-  async getData(options) {
-    const data = super.getData(options);
-    data.filters = Object.keys(PIXI.filters);
-    data.filters.push('OutlineOverlayFilter');
-    data.filters.sort();
-    data.tmfxActive = game.modules.get('tokenmagic')?.active;
-    if (data.tmfxActive) {
-      data.tmfxPresets = TokenMagic.getPresets().map((p) => p.name);
-      data.filters.unshift('Token Magic FX');
-    }
-    data.filters.unshift('NONE');
-    const settings = foundry.utils.mergeObject(DEFAULT_OVERLAY_CONFIG, this.config, {
-      inplace: false,
-    });
-
-    data.ceActive = game.modules.get('dfreds-convenient-effects')?.active;
-    if (data.ceActive) {
-      data.ceEffects = game.dfreds.effectInterface.findEffects().map((ef) => ef.name);
-    }
-    data.macros = game.macros.map((m) => m.name);
-
-    if (settings.filter !== 'NONE') {
-      const filterOptions = genFilterOptionControls(settings.filter, settings.filterOptions);
-      if (filterOptions) {
-        settings.filterOptions = filterOptions;
-      } else {
-        settings.filterOptions = null;
-      }
-    } else {
-      settings.filterOptions = null;
-    }
-
-    data.users = game.users.map((u) => {
-      return { id: u.id, name: u.name, selected: settings.limitedUsers.includes(u.id) };
-    });
-
-    data.fonts = Object.keys(CONFIG.fontDefinitions).concat(
-      Object.keys(game.settings.get('core', foundry.applications.settings.menus.FontConfig.SETTING)),
-    );
-    data.fontWeights = [
-      'normal',
-      'bold',
-      'bolder',
-      'lighter',
-      '100',
-      '200',
-      '300',
-      '400',
-      '500',
-      '600',
-      '700',
-      '800',
-      '900',
-    ];
-
-    const allMappings = getAllEffectMappings(this.token, true).filter((m) => m.id !== this.config.id);
-    const { groups: groupedMappings } = sortMappingsToGroups(allMappings);
-
-    data.parents = groupedMappings;
-    if (!data.parentID) data.parentID = 'TOKEN';
-    if (!data.anchor) data.anchor = { x: 0.5, y: 0.5 };
-
-    // Cache Partials
-    for (const shapeName of Object.keys(OVERLAY_SHAPES)) {
-      await getTemplate(`modules/token-variants/templates/partials/shape${shapeName}.html`);
-    }
-    await getTemplate('modules/token-variants/templates/partials/repeating.html');
-    await getTemplate('modules/token-variants/templates/partials/interpolateColor.html');
-
-    data.allShapes = Object.keys(OVERLAY_SHAPES);
-    data.textAlignmentOptions = [
-      { value: 'left', label: 'Left' },
-      { value: 'center', label: 'Center' },
-      { value: 'right', label: 'Right' },
-      { value: 'justify', label: 'Justify' },
-    ];
-
-    data.vision5e = game.modules.get('vision-5e')?.active;
-
-    // linkDimensions has been converted to linkDimensionsX and linkDimensionsY
-    // Make sure we're using the latest fields
-    // 20/07/2023
-    if (!('linkDimensionsX' in settings) && settings.linkDimensions) {
-      settings.linkDimensionsX = true;
-      settings.linkDimensionsY = true;
-    }
-
-    return foundry.utils.mergeObject(data, settings);
-  }
-
   _getHeaderButtons() {
     const buttons = super._getHeaderButtons();
     buttons.unshift({
@@ -622,8 +606,8 @@ export class OverlayConfig extends FormApplication {
   }
 
   _getSubmitData() {
-    let formData = super._getSubmitData();
-    formData = foundry.utils.expandObject(formData);
+    const form = this.element.querySelector('form');
+    let formData = form ? foundry.utils.expandObject(new FormDataExtended(form).object) : {};
     if (formData.img) {
       const images = Object.values(formData.img);
       if (images.length === 1) {
@@ -688,12 +672,10 @@ export class OverlayConfig extends FormApplication {
     return formData;
   }
 
-  /**
-   * @param {Event} event
-   * @param {Object} formData
-   */
-  async _updateObject(event, formData) {
-    if (this.callback) this.callback(formData);
+  static async _onSubmitV2(event, form, formData) {
+    const app = this;
+    const processed = app._getSubmitData();
+    if (app.callback) app.callback(processed);
   }
 }
 

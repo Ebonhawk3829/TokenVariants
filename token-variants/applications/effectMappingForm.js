@@ -15,9 +15,11 @@ import { CORE_TEMPLATES } from '../scripts/mappingTemplates.js';
 let TOGGLED_GROUPS;
 const NO_IMAGE = 'modules\\token-variants\\img\\empty.webp';
 
-export default class EffectMappingForm extends FormApplication {
+export default class EffectMappingForm extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
     constructor(token, { globalMappings = false, callback = null, createMapping = null } = {}) {
-        super({}, {});
+        super({});
 
         this.token = token;
         if (globalMappings) {
@@ -29,21 +31,24 @@ export default class EffectMappingForm extends FormApplication {
             Default: true,
         };
         this.createMapping = createMapping;
+        this.object = {};
     }
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            id: 'token-variants-active-effect-config',
-            classes: ['sheet'],
-            template: 'modules/token-variants/templates/effectMappingForm.html',
-            resizable: true,
-            minimizable: false,
+    static DEFAULT_OPTIONS = {
+        id: 'token-variants-active-effect-config',
+        classes: ['sheet'],
+        position: { width: 1020, height: 'auto' },
+        window: { resizable: true, minimizable: false },
+        form: {
+            handler: EffectMappingForm._onSubmitV2,
+            submitOnChange: false,
             closeOnSubmit: false,
-            width: 1020,
-            height: 'auto',
-            scrollY: ['ol.token-variant-table'],
-        });
-    }
+        },
+    };
+
+    static PARTS = {
+        form: { template: 'modules/token-variants/templates/effectMappingForm.html' },
+    };
 
     get title() {
         let scope = 'GLOBAL';
@@ -87,8 +92,8 @@ export default class EffectMappingForm extends FormApplication {
         };
     }
 
-    async getData(options) {
-        const data = super.getData(options);
+    async _prepareContext(options) {
+        const data = {};
 
         data.NO_IMAGE = NO_IMAGE;
 
@@ -129,8 +134,8 @@ export default class EffectMappingForm extends FormApplication {
     /**
      * @param {JQuery} html
      */
-    activateListeners(html) {
-        super.activateListeners(html);
+    _onRender(context, options) {
+        const html = $(this.element);
         html.find('.delete-mapping').click(this._onRemove.bind(this));
         html.find('.clone-mapping').click(this._onClone.bind(this));
         html.find('.create-mapping').click(this._onCreate.bind(this));
@@ -850,13 +855,17 @@ export default class EffectMappingForm extends FormApplication {
      * @param {Event} event
      * @param {Object} formData
      */
-    async _updateObject(event, formData) {
-        const mappings = foundry.utils.expandObject(formData).mappings ?? {};
+    _updateObject(event, formData) {
+        return EffectMappingForm._onSubmitV2.call(this, event, null, formData);
+    }
 
-        // Merge form data with internal mappings
-        for (let i = 0; i < this.object.mappings.length; i++) {
+    static async _onSubmitV2(event, form, formData) {
+        const app = this;
+        const mappings = foundry.utils.expandObject(formData.object).mappings ?? {};
+
+        for (let i = 0; i < app.object.mappings.length; i++) {
             const m1 = mappings[i];
-            const m2 = this.object.mappings[i];
+            const m2 = app.object.mappings[i];
             m2.id = m1.id;
             m2.label = m1.label.replaceAll(String.fromCharCode(160), ' ');
             m2.expression = m1.expression.replaceAll(String.fromCharCode(160), ' ');
