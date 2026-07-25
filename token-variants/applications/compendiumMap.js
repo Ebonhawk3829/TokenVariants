@@ -150,82 +150,86 @@ function addToArtSelectQueue(actor, image1, image2, formData, typeOverride) {
   }
 }
 
-export default class CompendiumMapConfig extends FormApplication {
+export default class CompendiumMapConfig extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2,
+) {
   constructor() {
-    super({}, {});
+    super({});
     this.searchOptions = foundry.utils.deepClone(getSearchOptions());
     foundry.utils.mergeObject(this.searchOptions, foundry.utils.deepClone(TVA_CONFIG.compendiumMapper.searchOptions));
     this._fixSearchPaths();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'token-variants-compendium-map-config',
-      classes: ['sheet'],
-      template: 'modules/token-variants/templates/compendiumMap.html',
-      resizable: false,
-      minimizable: false,
-      title: game.i18n.localize('token-variants.settings.compendium-mapper.Name'),
-      width: 500,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'token-variants-compendium-map-config',
+    classes: ['sheet'],
+    position: { width: 500 },
+    window: { resizable: false, minimizable: false, title: game.i18n.localize('token-variants.settings.compendium-mapper.Name') },
+    form: {
+      handler: CompendiumMapConfig.#onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
+  };
 
-  async getData(options) {
-    let data = super.getData(options);
-    data = foundry.utils.mergeObject(data, TVA_CONFIG.compendiumMapper);
+  static PARTS = {
+    form: { template: 'modules/token-variants/templates/compendiumMap.html' },
+  };
 
+  async _prepareContext(options) {
     const supportedPacks = ['Actor', 'Cards', 'Item', 'Macro', 'RollTable'];
-    data.supportedPacks = supportedPacks.join(', ');
-
     const packs = [];
     game.packs.forEach((pack) => {
       if (!pack.locked && supportedPacks.includes(pack.documentName)) {
         packs.push({ title: pack.title, id: pack.collection, type: pack.documentName });
       }
     });
-    data.compendiums = packs;
-    data.compendium = TVA_CONFIG.compendiumMapper.compendium;
 
-    data.categories = BASE_IMAGE_CATEGORIES.concat(TVA_CONFIG.customImageCategories);
-    data.category = TVA_CONFIG.compendiumMapper.category;
-
-    return data;
+    return {
+      ...TVA_CONFIG.compendiumMapper,
+      supportedPacks: supportedPacks.join(', '),
+      compendiums: packs,
+      compendium: TVA_CONFIG.compendiumMapper.compendium,
+      categories: BASE_IMAGE_CATEGORIES.concat(TVA_CONFIG.customImageCategories),
+      category: TVA_CONFIG.compendiumMapper.category,
+    };
   }
 
-  /**
-   * @param {JQuery} html
-   */
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find('.token-variants-override-category').change(this._onCategoryOverride).trigger('change');
-    html.find('.token-variants-auto-apply').change(this._onAutoApply);
-    html.find('.token-variants-diff-images').change(this._onDiffImages);
-    html.find(`.token-variants-search-options`).on('click', this._onSearchOptions.bind(this));
-    html.find(`.token-variants-missing-images`).on('click', this._onMissingImages.bind(this));
+  _onRender(context, options) {
+    const el = this.element;
 
-    $(html).find('[name="compendium"]').change(this._onCompendiumSelect.bind(this)).trigger('change');
-  }
+    const overrideCat = el.querySelector('.token-variants-override-category');
+    const autoApply = el.querySelector('.token-variants-auto-apply');
+    const diffImages = el.querySelector('.token-variants-diff-images');
+    const compendiumSelect = el.querySelector('[name="compendium"]');
 
-  async _onAutoApply(event) {
-    $(event.target).closest('form').find('.token-variants-auto-art-select').prop('disabled', !event.target.checked);
-  }
+    overrideCat?.addEventListener('change', (e) => {
+      const cat = el.querySelector('.token-variants-category');
+      if (cat) cat.disabled = !e.target.checked;
+    });
+    overrideCat?.dispatchEvent(new Event('change'));
 
-  async _onCategoryOverride(event) {
-    $(event.target).closest('form').find('.token-variants-category').prop('disabled', !event.target.checked);
-  }
+    autoApply?.addEventListener('change', (e) => {
+      const artSelect = el.querySelector('.token-variants-auto-art-select');
+      if (artSelect) artSelect.disabled = !e.target.checked;
+    });
 
-  async _onDiffImages(event) {
-    $(event.target).closest('form').find('.token-variants-tp-ignore').prop('disabled', !event.target.checked);
-  }
+    diffImages?.addEventListener('change', (e) => {
+      const tpIgnore = el.querySelector('.token-variants-tp-ignore');
+      if (tpIgnore) tpIgnore.disabled = !e.target.checked;
+    });
 
-  async _onCompendiumSelect(event) {
-    const compendium = game.packs.get($(event.target).val());
-    if (compendium) {
-      $(event.target)
-        .closest('form')
-        .find('.token-specific')
-        .css('visibility', compendium.documentName === 'Actor' ? 'visible' : 'hidden');
-    }
+    compendiumSelect?.addEventListener('change', (e) => {
+      const compendium = game.packs.get(e.target.value);
+      if (compendium) {
+        const tokenSpecific = el.querySelector('.token-specific');
+        if (tokenSpecific) tokenSpecific.style.visibility = compendium.documentName === 'Actor' ? 'visible' : 'hidden';
+      }
+    });
+    compendiumSelect?.dispatchEvent(new Event('change'));
+
+    el.querySelector('.token-variants-search-options')?.addEventListener('click', this._onSearchOptions.bind(this));
+    el.querySelector('.token-variants-missing-images')?.addEventListener('click', this._onMissingImages.bind(this));
   }
 
   _fixSearchPaths() {
@@ -289,7 +293,7 @@ export default class CompendiumMapConfig extends FormApplication {
     if (compendium.documentName === 'Actor') {
       processItem = async function (item) {
         const actor = item;
-        if (actor.name === '#[CF_tempEntity]') return; // Compendium Folders module's control entity
+        if (actor.name === '#[CF_tempEntity]') return;
 
         let hasPortrait = actor.img !== CONST.DEFAULT_TOKEN && !missingImageList.includes(actor.img);
         let hasToken =
@@ -326,7 +330,7 @@ export default class CompendiumMapConfig extends FormApplication {
     } else {
       processItem = async function (item) {
         const doc = item;
-        if (doc.name === '#[CF_tempEntity]') return; // Compendium Folders module's control entity
+        if (doc.name === '#[CF_tempEntity]') return;
 
         let defaultImg = '';
         if (doc.schema.fields.img || doc.schema.fields.texture) {
@@ -377,7 +381,8 @@ export default class CompendiumMapConfig extends FormApplication {
       let processing = true;
       let stopProcessing = false;
       let processed = 0;
-      let counter = $(`<p>CACHING 0/${documents.length}</p>`);
+      let counter = document.createElement('p');
+      counter.textContent = `CACHING 0/${documents.length}`;
       let d;
 
       const startProcessing = async function () {
@@ -389,7 +394,7 @@ export default class CompendiumMapConfig extends FormApplication {
             }, 10);
           });
           processed++;
-          counter.html(`${processed}/${documents.length}`);
+          counter.textContent = `${processed}/${documents.length}`;
         }
         if (stopProcessing || processed === documents.length) {
           d?.close(true);
@@ -399,72 +404,47 @@ export default class CompendiumMapConfig extends FormApplication {
       };
 
       d = new Dialog({
-        title: `Mapping: ${compendium.title}`,
-        content: `
-        <div style="text-align:center;" class="fa-3x"><i class="fas fa-spinner fa-pulse"></i></div>
-        <div style="text-align:center;" class="counter"></div>
-        <button style="width:100%;" class="pause"><i class="fas fa-play-circle"></i> Pause/Start</button>`,
+        title: `Processing ${compendium.title}`,
+        content: counter.outerHTML,
         buttons: {
-          cancel: {
-            icon: '<i class="fas fa-stop-circle"></i>',
-            label: 'Cancel',
+          stop: {
+            icon: "<i class='fas fa-stop'></i>",
+            label: 'Stop',
+            callback: () => {
+              processing = false;
+              stopProcessing = true;
+            },
           },
         },
-        default: 'cancel',
-        render: (html) => {
-          html.find('.counter').append(counter);
-          const spinner = html.find('.fa-spinner');
-          html.find('.pause').on('click', () => {
-            if (processing) {
-              processing = false;
-              spinner.removeClass('fa-pulse');
-            } else {
-              processing = true;
-              startProcessing();
-              spinner.addClass('fa-pulse');
-            }
-          });
-          setTimeout(async () => startProcessing(), 1000);
-        },
         close: () => {
-          if (!stopProcessing) {
-            stopProcessing = true;
-            if (!processing) startProcessing();
-            else processing = false;
-          }
+          processing = false;
+          stopProcessing = true;
         },
-      });
-      d.render(true);
+      }).render(true);
+
+      startProcessing();
     } else {
-      const tasks = documents.map(processItem);
-      Promise.all(tasks).then(() => {
-        addToQueue('DUMMY', { execute: endMapping });
-        renderFromQueue();
-        if (formData.missingOnly && !artSelectDisplayed) {
-          ui.notifications.warn('Token Variant Art: No documents found containing missing images.');
-        }
-      });
+      for (const doc of documents) {
+        await processItem(doc);
+      }
+      addToQueue('DUMMY', { execute: endMapping });
+      renderFromQueue();
     }
   }
 
-  /**
-   * @param {Event} event
-   * @param {Object} formData
-   */
-  async _updateObject(event, formData) {
-    // If search paths are the same, remove them from searchOptions
-    if (
-      !this.searchOptions.searchPaths?.length ||
-      foundry.utils.isEmpty(foundry.utils.diffObject(this.searchOptions.searchPaths, TVA_CONFIG.searchPaths))
-    ) {
-      this.searchOptions.searchPaths = [];
+  static async #onSubmit(event, form, formData) {
+    const app = this;
+    const data = formData.object;
+
+    if (data.searchOptions) {
+      foundry.utils.mergeObject(app.searchOptions, data.searchOptions);
+      delete data.searchOptions;
     }
 
-    formData.searchOptions = this.searchOptions;
+    updateSettings({ compendiumMapper: data });
 
-    await updateSettings({ compendiumMapper: formData });
-    if (formData.compendium) {
-      this.startMapping(formData);
+    if (data.compendium) {
+      app.startMapping(data);
     }
   }
 }
