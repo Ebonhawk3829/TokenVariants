@@ -40,32 +40,36 @@ export async function renderTokenHUD(hud, html, token, searchText = '', fp_files
         if (tokenActor && tokenActor.prototypeToken.randomImg) return;
     }
 
-    const button = $(`
-  <button type="button" class="control-icon" data-action="tva" data-palette="tva" data-tooltip="[Left-click]: Image Menu &#013;[Right-Click]: Search & Additional settings">
-    <img src="modules/token-variants/img/token-images.svg" width="36" height="36"/>
-  </button>
-`);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'control-icon';
+    button.dataset.action = 'tva';
+    button.dataset.palette = 'tva';
+    button.dataset.tooltip = '[Left-click]: Image Menu &#013;[Right-Click]: Search & Additional settings';
+    const img = document.createElement('img');
+    img.src = 'modules/token-variants/img/token-images.svg';
+    img.width = 36;
+    img.height = 36;
+    button.appendChild(img);
 
-    html.querySelector('div.right').appendChild(button[0]);
+    html.querySelector('div.right').appendChild(button);
 }
 
 export async function renderContextMenuPalette(token) {
-    const contextMenu = $(
-        await foundry.applications.handlebars.renderTemplate(
-            'modules/token-variants/templates/contextMenuPalette.html',
-            {},
-        ),
+    const contextMenu = document.createElement('template');
+    contextMenu.innerHTML = await foundry.applications.handlebars.renderTemplate(
+        'modules/token-variants/templates/contextMenuPalette.html',
+        {},
     );
+    const el = contextMenu.content.firstElementChild;
 
     // Register contextmenu listeners
-    contextMenu
-        .find('.token-variants-side-search')
-        .on('keyup', (event) => _onImageSearchKeyUp(event, token))
-        .on('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        });
-    contextMenu.find('.flags').click((event) => {
+    el.querySelector('.token-variants-side-search')?.addEventListener('keyup', (event) => _onImageSearchKeyUp(event, token));
+    el.querySelector('.token-variants-side-search')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    });
+    el.querySelector('.flags')?.addEventListener('click', (event) => {
         const tkn = canvas.tokens.get(token._id);
         if (tkn) {
             event.preventDefault();
@@ -73,7 +77,7 @@ export async function renderContextMenuPalette(token) {
             new FlagsConfig(tkn).render(true);
         }
     });
-    contextMenu.find('.file-picker').click(async (event) => {
+    el.querySelector('.file-picker')?.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
         new foundry.applications.apps.FilePicker.implementation({
@@ -86,19 +90,19 @@ export async function renderContextMenuPalette(token) {
                 let files = content.files.filter((f) => isImage(f) || isVideo(f));
                 if (files.length) {
                     const palette = await renderPalette(token, '', files);
-                    palette.addClass('active');
-                    contextMenu.replaceWith(palette);
+                    palette.classList.add('active');
+                    el.replaceWith(palette);
                 }
             },
         }).render(true);
     });
-    contextMenu.find('.effectConfig').click((event) => {
+    el.querySelector('.effectConfig')?.addEventListener('click', (event) => {
         new EffectMappingForm(token).render(true);
     });
-    contextMenu.find('.randomizerConfig').click((event) => {
+    el.querySelector('.randomizerConfig')?.addEventListener('click', (event) => {
         new RandomizerConfig(token).render(true);
     });
-    return contextMenu;
+    return el;
 }
 
 export async function renderPalette(token, searchText = '', fp_files = null) {
@@ -178,7 +182,7 @@ export async function renderPalette(token, searchText = '', fp_files = null) {
                         } catch (err) {
                             dirFlagImages = [];
                         }
-                        dirFlagImages = dirFlagImages.forEach((f) => {
+                        dirFlagImages.forEach((f) => {
                             if (isImage(f) || isVideo(f)) pushImage({ path: decodeURISafely(f), name: getFileName(f) });
                         });
                     }
@@ -336,37 +340,38 @@ export async function renderPalette(token, searchText = '', fp_files = null) {
     //
     const imageOpacity = hudSettings.imageOpacity / 100;
 
-    const sideSelect = $(
-        await foundry.applications.handlebars.renderTemplate('modules/token-variants/templates/palette.html', {
-            imagesParsed,
-            imageOpacity,
-            tokenHud: true,
-        }),
-    );
+    const template = document.createElement('template');
+    template.innerHTML = await foundry.applications.handlebars.renderTemplate('modules/token-variants/templates/palette.html', {
+        imagesParsed,
+        imageOpacity,
+        tokenHud: true,
+    });
+    const sideSelect = template.content.firstElementChild;
 
     // Activate listeners
-    sideSelect.find('video').hover(
-        function () {
+    sideSelect.querySelectorAll('video').forEach((vid) => {
+        vid.addEventListener('mouseenter', () => {
             if (TVA_CONFIG.playVideoOnHover) {
-                this.play();
-                $(this).siblings('.fa-play').hide();
+                vid.play();
+                const playIcon = vid.parentElement?.querySelector('.fa-play');
+                if (playIcon) playIcon.style.display = 'none';
             }
-        },
-        function () {
+        });
+        vid.addEventListener('mouseleave', () => {
             if (TVA_CONFIG.pauseVideoOnHoverOut) {
-                this.pause();
-                this.currentTime = 0;
-                $(this).siblings('.fa-play').show();
+                vid.pause();
+                vid.currentTime = 0;
+                const playIcon = vid.parentElement?.querySelector('.fa-play');
+                if (playIcon) playIcon.style.display = '';
             }
-        },
-    );
-    sideSelect.find('.token-variants-button-select').click((event) => _onImageClick(event, token._id));
-
-    if (FULL_ACCESS) {
-        sideSelect
-            .find('.token-variants-button-select')
-            .on('contextmenu', (event) => _onImageRightClick(event, token._id));
-    }
+        });
+    });
+    sideSelect.querySelectorAll('.token-variants-button-select').forEach((el) => {
+        el.addEventListener('click', (event) => _onImageClick(event, token._id));
+        if (FULL_ACCESS) {
+            el.addEventListener('contextmenu', (event) => _onImageRightClick(event, token._id));
+        }
+    });
 
     return sideSelect;
 }
@@ -380,17 +385,16 @@ async function _onImageClick(event, tokenId) {
 
     const worldHudSettings = TVA_CONFIG.worldHud;
 
-    const imgButton = $(event.target).closest('.token-variants-button-select');
-    const imgSrc = imgButton.attr('data-name');
-    const name = imgButton.attr('data-filename');
+    const imgButton = event.target.closest('.token-variants-button-select');
+    const imgSrc = imgButton?.dataset.name;
+    const name = imgButton?.dataset.filename;
 
     if (!imgSrc || !name) return;
 
     if (keyPressed('config') && game.user.isGM) {
         const toggleCog = (saved) => {
-            const cog = imgButton.find('.fa-cog');
-            if (saved) cog.addClass('active');
-            else cog.removeClass('active');
+            const cog = imgButton.querySelector('.fa-cog');
+            if (cog) cog.classList.toggle('active', saved);
         };
         new TokenCustomConfig(token, {}, imgSrc, name, toggleCog).render(true);
     } else if (token.document.texture.src === imgSrc) {
@@ -432,22 +436,23 @@ async function _onImageRightClick(event, tokenId) {
     let token = canvas.tokens.controlled.find((t) => t.document.id === tokenId);
     if (!token) return;
 
-    const imgButton = $(event.target).closest('.token-variants-button-select');
-    const imgSrc = imgButton.attr('data-name');
-    const name = imgButton.attr('data-filename');
+    const imgButton = event.target.closest('.token-variants-button-select');
+    const imgSrc = imgButton?.dataset.name;
+    const name = imgButton?.dataset.filename;
 
     if (!imgSrc || !name) return;
 
     if (keyPressed('config') && game.user.isGM) {
         const regenStyle = (token, img) => {
             const mappings = token.document.getFlag('token-variants', 'userMappings') || {};
-            const name = imgButton.attr('data-filename');
-            const [title, style] = genTitleAndStyle(mappings, img, name);
-            imgButton
-                .closest('.token-variants-palette')
-                .find(`.token-variants-button-select[data-name='${img}']`)
-                .css('box-shadow', style)
-                .prop('title', title);
+            const btnName = imgButton.dataset.filename;
+            const [title, style] = genTitleAndStyle(mappings, img, btnName);
+            const palette = imgButton.closest('.token-variants-palette');
+            const targetBtn = palette?.querySelector(`.token-variants-button-select[data-name='${img}']`);
+            if (targetBtn) {
+                targetBtn.style.boxShadow = style;
+                targetBtn.title = title;
+            }
         };
         new UserList(token, imgSrc, regenStyle).render(true);
     } else if (token.actor) {
@@ -459,7 +464,7 @@ async function _onImageRightClick(event, tokenId) {
         let updated = false;
         for (let variant of variants) {
             if (variant.imgSrc === imgSrc) {
-                let fNames = variant.names.filter((name) => name !== name);
+                let fNames = variant.names.filter((n) => n !== name);
                 if (fNames.length === 0) {
                     del = true;
                 } else if (fNames.length === variant.names.length) {
@@ -475,7 +480,8 @@ async function _onImageRightClick(event, tokenId) {
 
         // Set shared variants as an actor flag
         setVariants(tokenActor, variants);
-        imgButton.find('.fa-share').toggleClass('active'); // Display green arrow
+        const shareIcon = imgButton.querySelector('.fa-share');
+        if (shareIcon) shareIcon.classList.toggle('active'); // Display green arrow
     }
 }
 
@@ -484,9 +490,9 @@ async function _onImageSearchKeyUp(event, token) {
     event.stopPropagation();
     if (event.key === 'Enter' || event.keyCode === 13) {
         if (event.target.value.length >= 3) {
-            const palette = $(event.target).closest('.palette');
+            const palette = event.target.closest('.palette');
             const sideSelect = await renderPalette(token, event.target.value);
-            sideSelect.addClass('active');
+            sideSelect.classList.add('active');
             palette.replaceWith(sideSelect);
         }
     }
