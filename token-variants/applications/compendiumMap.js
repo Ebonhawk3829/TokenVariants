@@ -164,7 +164,7 @@ export default class CompendiumMapConfig extends foundry.applications.api.Handle
     id: 'token-variants-compendium-map-config',
     classes: ['sheet'],
     position: { width: 500 },
-    window: { resizable: false, minimizable: false, title: game.i18n.localize('token-variants.settings.compendium-mapper.Name') },
+    window: { resizable: false, minimizable: false },
     form: {
       handler: CompendiumMapConfig._onSubmitV2,
       submitOnChange: false,
@@ -175,6 +175,10 @@ export default class CompendiumMapConfig extends foundry.applications.api.Handle
   static PARTS = {
     form: { template: 'modules/token-variants/templates/compendiumMap.html' },
   };
+
+  get title() {
+    return game.i18n.localize('token-variants.settings.compendium-mapper.Name');
+  }
 
   async _prepareContext(options) {
     const supportedPacks = ['Actor', 'Cards', 'Item', 'Macro', 'RollTable'];

@@ -13,7 +13,7 @@ export class ForgeSearchPaths extends foundry.applications.api.HandlebarsApplica
     id: 'token-variants-search-paths',
     classes: ['sheet'],
     position: { width: 592, height: 'auto' },
-    window: { resizable: true, minimizable: false, title: game.i18n.localize('token-variants.settings.search-paths.Name') },
+    window: { resizable: true, minimizable: false },
     form: {
       handler: ForgeSearchPaths._onSubmitV2,
       submitOnChange: false,
@@ -24,6 +24,10 @@ export class ForgeSearchPaths extends foundry.applications.api.HandlebarsApplica
   static PARTS = {
     form: { template: 'modules/token-variants/templates/forgeSearchPaths.html' },
   };
+
+  get title() {
+    return game.i18n.localize('token-variants.settings.search-paths.Name');
+  }
 
   async _prepareContext(options) {
     if (!this.object.paths) this.object.paths = await this._getPaths();
