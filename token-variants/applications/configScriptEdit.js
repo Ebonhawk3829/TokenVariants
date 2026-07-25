@@ -13,7 +13,7 @@ export default class EditScriptConfig extends foundry.applications.api.Handlebar
     position: { width: 640, height: 640 },
     window: { resizable: true, minimizable: false, title: 'Scripts' },
     form: {
-      handler: EditScriptConfig.#onSubmit,
+      handler: EditScriptConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -66,7 +66,7 @@ export default class EditScriptConfig extends foundry.applications.api.Handlebar
     this.close();
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     let data = foundry.utils.expandObject(formData.object);
     ['onApply', 'onRemove', 'macroOnApply', 'macroOnRemove'].forEach((k) => {
       data[k] = data[k].trim();

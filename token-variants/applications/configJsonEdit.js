@@ -13,7 +13,7 @@ export default class EditJsonConfig extends foundry.applications.api.HandlebarsA
     position: { width: 400, height: 380 },
     window: { resizable: true, minimizable: false, title: 'Edit Token Configuration' },
     form: {
-      handler: EditJsonConfig.#onSubmit,
+      handler: EditJsonConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -71,7 +71,7 @@ export default class EditJsonConfig extends foundry.applications.api.HandlebarsA
     form.querySelector('textarea[name="config"]').value = JSON.stringify(this.config, null, 2);
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     if (app.callback) app.callback(app.config);
   }

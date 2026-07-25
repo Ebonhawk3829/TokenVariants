@@ -12,7 +12,7 @@ export default class RandomizerConfig extends foundry.applications.api.Handlebar
     position: { width: 500 },
     window: { resizable: true, minimizable: false, title: 'Randomizer' },
     form: {
-      handler: RandomizerConfig.#onSubmit,
+      handler: RandomizerConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -95,7 +95,7 @@ export default class RandomizerConfig extends foundry.applications.api.Handlebar
     }).render(true);
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     if (event.submitter.value === 'remove') {
       await app.actor.unsetFlag('token-variants', 'randomizerSettings');

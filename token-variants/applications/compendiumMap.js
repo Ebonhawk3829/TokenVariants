@@ -166,7 +166,7 @@ export default class CompendiumMapConfig extends foundry.applications.api.Handle
     position: { width: 500 },
     window: { resizable: false, minimizable: false, title: game.i18n.localize('token-variants.settings.compendium-mapper.Name') },
     form: {
-      handler: CompendiumMapConfig.#onSubmit,
+      handler: CompendiumMapConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -432,7 +432,7 @@ export default class CompendiumMapConfig extends foundry.applications.api.Handle
     }
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     const data = formData.object;
 

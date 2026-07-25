@@ -17,7 +17,7 @@ export default class FlagsConfig extends foundry.applications.api.HandlebarsAppl
     position: { width: 500 },
     window: { resizable: true, minimizable: false, title: 'Flags' },
     form: {
-      handler: FlagsConfig.#onSubmit,
+      handler: FlagsConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -76,7 +76,7 @@ export default class FlagsConfig extends foundry.applications.api.HandlebarsAppl
     });
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     const data = formData.object;
 

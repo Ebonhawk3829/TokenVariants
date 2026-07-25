@@ -18,7 +18,7 @@ export default class UserList extends foundry.applications.api.HandlebarsApplica
     position: { width: 300 },
     window: { resizable: false, minimizable: false, title: 'User To Image' },
     form: {
-      handler: UserList.#onSubmit,
+      handler: UserList._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -50,7 +50,7 @@ export default class UserList extends foundry.applications.api.HandlebarsApplica
     });
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     const mappings = app.object.document.getFlag('token-variants', 'userMappings') || {};
     const data = formData.object;

@@ -15,7 +15,7 @@ export class ForgeSearchPaths extends foundry.applications.api.HandlebarsApplica
     position: { width: 592, height: 'auto' },
     window: { resizable: true, minimizable: false, title: game.i18n.localize('token-variants.settings.search-paths.Name') },
     form: {
-      handler: ForgeSearchPaths.#onSubmit,
+      handler: ForgeSearchPaths._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: false,
     },
@@ -120,7 +120,7 @@ export class ForgeSearchPaths extends foundry.applications.api.HandlebarsApplica
     this._updatePaths();
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     const expanded = foundry.utils.expandObject(formData.object);
     expanded.paths = expanded.hasOwnProperty('paths') ? Object.values(expanded.paths) : [];

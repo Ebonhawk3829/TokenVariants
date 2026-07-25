@@ -9,7 +9,7 @@ export default class TokenHUDClientSettings extends foundry.applications.api.Han
     position: { width: 500 },
     window: { resizable: false, minimizable: false, title: '' },
     form: {
-      handler: TokenHUDClientSettings.#onSubmit,
+      handler: TokenHUDClientSettings._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -23,7 +23,7 @@ export default class TokenHUDClientSettings extends foundry.applications.api.Han
     return TVA_CONFIG.hud;
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     await game.settings.set('token-variants', 'hudSettings', foundry.utils.mergeObject(TVA_CONFIG.hud, formData.object));
   }
 }

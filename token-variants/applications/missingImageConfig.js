@@ -15,7 +15,7 @@ export default class MissingImageConfig extends foundry.applications.api.Handleb
     position: { width: 560, height: 'auto' },
     window: { resizable: true, minimizable: false, title: 'Define Missing Images' },
     form: {
-      handler: MissingImageConfig.#onSubmit,
+      handler: MissingImageConfig._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -132,7 +132,7 @@ export default class MissingImageConfig extends foundry.applications.api.Handleb
     });
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     updateSettings({
       compendiumMapper: { missingImages: app._processFormData(formData.object) },

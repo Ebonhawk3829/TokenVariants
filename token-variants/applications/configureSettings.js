@@ -48,7 +48,7 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     position: { width: 700, height: 'auto' },
     window: { resizable: false, minimizable: false, title: 'Configure Settings' },
     form: {
-      handler: ConfigureSettings.#onSubmit,
+      handler: ConfigureSettings._onSubmitV2,
       submitOnChange: false,
       closeOnSubmit: true,
     },
@@ -440,7 +440,7 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     this.render();
   }
 
-  static async #onSubmit(event, form, formData) {
+  static async _onSubmitV2(event, form, formData) {
     const app = this;
     const expanded = foundry.utils.expandObject(formData.object);
 
