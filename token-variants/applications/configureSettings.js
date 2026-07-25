@@ -45,17 +45,19 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
   static DEFAULT_OPTIONS = {
     id: 'token-variants-configure-settings',
     classes: ['sheet'],
+    tag: "form",
     position: { width: 700, height: 'auto' },
     window: { resizable: false, minimizable: false, title: 'Configure Settings' },
+    form: {
+      handler: ConfigureSettings._onSubmitV2,
+      submitOnChange: false,
+      closeOnSubmit: true,
+    },
   };
 
   static PARTS = {
     main: {
       template: 'modules/token-variants/templates/configureSettings.html',
-      form: {
-        handler: ConfigureSettings._onSubmitV2,
-        closeOnSubmit: true,
-      },
     },
   };
 
@@ -443,7 +445,7 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
 
   async _onCreatePath(event) {
     event.preventDefault();
-    await this.submit();
+    this._syncFormToSettings();
     this.settings.searchPaths.push({
       text: '',
       cache: true,
@@ -455,10 +457,22 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
 
   async _onDeletePath(event) {
     event.preventDefault();
-    await this.submit();
+    this._syncFormToSettings();
     const li = event.target.closest('.table-row');
-    this.settings.searchPaths.splice(li.dataset.index, 1);
+    this.settings.searchPaths.splice(Number(li.dataset.index), 1);
     this.render();
+  }
+
+  _syncFormToSettings() {
+    const formData = new foundry.applications.ux.FormDataExtended(this.element);
+    const expanded = foundry.utils.expandObject(formData.object);
+    if (expanded.searchPaths) {
+      expanded.searchPaths = Object.values(expanded.searchPaths).map((p) => {
+        p.types = typeof p.types === 'string' ? p.types.split(',') : p.types;
+        return p;
+      });
+    }
+    foundry.utils.mergeObject(this.settings, expanded, { inplace: true });
   }
 
   static async _onSubmitV2(event, form, formData) {
