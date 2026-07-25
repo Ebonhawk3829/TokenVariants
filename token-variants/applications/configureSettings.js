@@ -49,24 +49,6 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     window: { resizable: false, minimizable: false, title: 'Configure Settings' },
   };
 
-  static TABS = {
-    primary: {
-      tabs: [
-        { id: "searchPaths", group: "primary", label: "Search Paths" },
-        { id: "searchFilters", group: "primary", label: "Search Filters" },
-        { id: "searchAlgorithm", group: "primary", label: "Search Algorithm" },
-        { id: "randomizer", group: "primary", label: "Randomizer" },
-        { id: "features", group: "primary", label: "Features" },
-        { id: "popup", group: "primary", label: "Pop-up" },
-        { id: "permissions", group: "primary", label: "Permissions" },
-        { id: "worldHud", group: "primary", label: "Token HUD" },
-        { id: "activeEffects", group: "primary", label: "Effects" },
-        { id: "misc", group: "primary", label: "Misc" },
-      ],
-      initial: "searchPaths",
-    },
-  };
-
   static PARTS = {
     main: {
       template: 'modules/token-variants/templates/configureSettings.html',
@@ -91,7 +73,6 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     const settings = this.settings;
     const data = {};
 
-    data.tabs = this._prepareTabs("primary");
     data.enabledTabs = this.enabledTabs;
 
     // === Search Paths ===
@@ -206,6 +187,26 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
 
   async _onRender(context, options) {
     const el = this.element;
+
+    // Tab switching — wired manually since all tabs share one monolithic template
+    const navAnchors = el.querySelectorAll('.tva-setting-nav a[data-tab]');
+    const tabSections = el.querySelectorAll('.tab[data-group="primary"]');
+    
+    const activateTab = (tabId) => {
+      tabSections.forEach((s) => s.classList.toggle('active', s.dataset.tab === tabId));
+      navAnchors.forEach((a) => a.classList.toggle('active', a.dataset.tab === tabId));
+    };
+    
+    navAnchors.forEach((a) => {
+      a.addEventListener('click', (event) => {
+        event.preventDefault();
+        activateTab(a.dataset.tab);
+      });
+    });
+    
+    // Activate the first visible tab
+    const firstAnchor = el.querySelector('.tva-setting-nav a[data-tab]');
+    if (firstAnchor) activateTab(firstAnchor.dataset.tab);
 
     // Search Paths
     el.querySelector('a.create-path')?.addEventListener('click', this._onCreatePath.bind(this));
