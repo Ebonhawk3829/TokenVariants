@@ -91,6 +91,7 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     const settings = this.settings;
     const data = {};
 
+    data.tabs = this._prepareTabs("primary");
     data.enabledTabs = this.enabledTabs;
 
     // === Search Paths ===
@@ -203,7 +204,7 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     return data;
   }
 
-  _onRender(context, options) {
+  async _onRender(context, options) {
     const el = this.element;
 
     // Search Paths
