@@ -2,65 +2,60 @@
 
 ## Summary
 
-All 13 `FormApplication` subclasses converted to `HandlebarsApplicationMixin(ApplicationV2)` for Foundry VTT v14 compatibility. Minimum Foundry requirement raised to v14.
+Migrated Token Variant Art from Foundry v13 to v14. Core work: dropped v13 support (min/verified now 14), converted all FormApplication subclasses to ApplicationV2, and replaced jQuery-based hook/DOM handling with native DOM throughout.
 
-## Template Rule: `<form>` → single root
+## What was done
 
-**This is the single most impactful rule for FormApplication→AppV2 conversions.**
+**Manifest** — `compatibility.minimum` and `verified` set to `14`.
 
-When converting FormApplication templates to AppV2 parts:
+**Hooks** — Removed dead `render*ConfigV2` hook registrations; v14 fires the unsuffixed names (e.g. `renderTokenConfig`) for V2 core config sheets, delivering a raw DOM element instead of jQuery. Kept `renderActorSheetV2` (a real hook). Removed `renderMeasuredTemplateConfig` and its handler — `MeasuredTemplate` no longer exists in v14.
 
-1. Remove the `<form>` wrapper from the template. The application root is the form (set via `tag: "form"` in `DEFAULT_OPTIONS` or `form: {}` in the part config). A nested `<form>` is invalid HTML.
-2. **Replace it with exactly one non-form root element** — a `<div>` or `<section>`. Every part template must render a single top-level HTML element. Multiple siblings, leading comments, or conditional blocks that can produce zero elements will throw `"Template part must render a single HTML element"`.
+**FormApplication → ApplicationV2** — All 13 form classes converted to `HandlebarsApplicationMixin(ApplicationV2)`. Key patterns applied:
 
-This single rule would have prevented four rounds of fixups during this migration: the initial `<form>` stripping left zero-root templates, then the per-part `{{tab.cssClass}}` wiring failed because the monolithic template approach needed per-tab partials, then the single-root fixes needed auditing across all 13 forms.
+- `defaultOptions` → `DEFAULT_OPTIONS`; `getData` → `_prepareContext`; `activateListeners` logic → `_onRender` / `actions`.
+- Localized window titles moved out of `DEFAULT_OPTIONS` into a `get title()` getter (static options evaluate at load time, before `game.i18n` is ready).
+- Every part template must render a single root element, and must not contain a `<form>` tag — the app root becomes the form via `tag: "form"` in `DEFAULT_OPTIONS`.
+- Forms that save need both `tag: "form"` and a `form: { handler }` in `DEFAULT_OPTIONS`.
+- Add/delete-row handlers no longer call `this.submit()` (which crashes/closes in v14). Instead they sync current form values into an in-memory settings object, mutate it, and `render()`. Saving to disk happens only in the submit handler.
 
-## Deliberate deviations from idiomatic AppV2
+**jQuery cleanup** — Native DOM throughout. Note `renderTemplate()` returns a string in v14, so palette templates are parsed via `<template>` / `createElement` rather than `$()`. Removed leftover jQuery `[0]` unwraps on functions that now return DOM elements.
 
-### 1. Manual tab switching in `ConfigureSettings` instead of `static TABS`
+**Bug fixes made during migration** — `tokenHUD.js`: fixed a shadowed variable in a `.filter()` that always returned empty; removed a dead `dirFlagImages = ...forEach()` assignment.
 
-`ConfigureSettings` uses a monolithic template with all 10 tabs, switched manually in `_onRender` via `classList.toggle('active')` on `data-tab`/`data-group` sections. The idiomatic AppV2 approach requires `static TABS` + per-tab partials in `static PARTS` + `_preparePartContext` setting `context.tab` for each part.
+**Build config** — `webpack.config.js`: added `output.environment` and Terser `ecma: 2022` to allow modern class syntax without transpiling down.
 
-**Why the deviation:** Splitting the 880-line `configureSettings.html` into 12 partials (tabs nav + 10 tab bodies + footer) is a high-churn, high-risk change for a form that already works. The manual JS in `_onRender` wires the same `.tab.active` CSS pattern Foundry uses. A reviewer who prefers the idiomatic approach can request splitting in a follow-up PR.
+## Known deviations from idiomatic v14
 
-### 2. Public static `_onSubmitV2` instead of private `#onSubmit`
+These work but aren't the "textbook" v14 approach — flagged for reviewers:
 
-All form handlers use `static async _onSubmitV2(event, form, formData)` rather than `static async #onSubmit(...)`. The `#` syntax is stylistic in Foundry's docs, not required by the `form.handler` API.
+- **Tabs in ConfigureSettings** use manual `classList.toggle('active')` in `_onRender` rather than the declarative `static TABS` / `_preparePartContext` system.
+- **Form handlers** are public static (`_onSubmitV2`) rather than private (`#onSubmit`).
+- **jQuery retained** inside some `_onRender` methods for TVA's own Handlebars templates (safe, since jQuery still ships in v14).
 
-**Why the deviation:** Webpack 5's default acorn parser supports private fields natively, but the project's `webpack.config.js` uses no loaders and Terser has known mangling risks with private static methods at lower `ecma` targets. Public static handlers sidestep the Terser risk entirely and are functionally identical. The project already raised Terser's `ecma` to 2022 in `webpack.config.js` as future-proofing, but the handlers remain public for consistency across the codebase.
+## Testing status
 
-### 3. jQuery retained inside `_onRender` for TVA's own templates
+### Verified working (single-user)
 
-Several forms (`ArtSelect`, `EffectMappingForm`, `OverlayConfig`) retain jQuery in `_onRender` for event binding and DOM manipulation on their own Handlebars templates. Core hook handlers that receive raw HTMLElements from Foundry V2 hooks (`insertArtSelectButton`, `renderTokenHUD`) were converted to native DOM.
+- Module loads on v14 with no console errors on startup.
+- Token/actor art is found and displayed (search + cache works — confirmed ~5600 images cached).
+- Token HUD button opens the palette and successfully changes token art.
+- ConfigureSettings form: opens, tab switching works, search paths can be added/deleted, and Save persists.
 
-**Why the deviation:** jQuery still ships with Foundry v14 and works. TVA controls these templates end-to-end, so the DOM they receive is never a core V2 element. A full jQuery→native conversion of `_onRender` for these three large forms would be mechanical but high-churn with risk of breaking event delegation (especially the mapping row add/remove buttons and the expression editor in `EffectMappingForm`). This can be revisited in a future deprecation pass when jQuery is removed from Foundry.
+Everything below this line is converted but not tested — it built green and follows the same patterns as the verified pieces, but has not been exercised in-game.
 
-## Additional changes
+### Still to do
 
-- **`foundry.applications.instances`** replaces `ui.windows` in `ArtSelect` queue logic. `ui.windows` is legacy in v14 and does not contain ApplicationV2 instances.
-- **`renderMeasuredTemplateConfig`** hook and `_modTemplateConfig` handler removed — `MeasuredTemplateConfig` / the `MeasuredTemplate` Document no longer exists in v14.
-- **`*ConfigV2` hook registrations** removed from `artSelectButtonHooks.js`. Foundry v14 config classes (`TokenConfig`, `TileConfig`, etc.) fire the unsuffixed `renderTokenConfig` hook delivering a raw HTMLElement.
-- **Two latent bugs fixed** in `tokenHUD.js`: shadowed variable in `filter((name) => name !== name)` and dead `forEach` assignment.
+**Needs verification (likely fine, unconfirmed):**
 
-## Files changed
+- The other 12 forms — confirm each opens, renders content, accepts input, and saves: `EffectMappingForm`, `TokenHUDClientSettings`, `CompendiumMapConfig`, `UserList`, `FlagsConfig`, `RandomizerConfig`, `MissingImageConfig`, `ForgeSearchPaths`, `OverlayConfig`, `TokenCustomConfig`, `EditJsonConfig`, `EditScriptConfig`.
+- Dynamic-row handlers in other forms — `ConfigureSettings` had a `this.submit()` bug in its add/delete handlers that crashed in v14. Any other form with add/remove-row buttons (`ForgeSearchPaths`, `OverlayConfig`, `RandomizerConfig`, `EffectMappingForm`) likely has the same pattern. Grep for `this.submit()` across all forms and confirm they were given the same fix. **This is the highest-priority unchecked item — it's a known bug shape, not a hypothetical.**
+- Right-click "art select" on actor sheets, item sheets, and the various config sheets (token/tile/scene/drawing/note/macro/active-effect) — the button/context-menu insertion was reworked for v14 hooks but only the token path was tested.
+- `EffectMappingForm` depth test — group collapse toggles and drag-drop were converted but not exercised.
 
-| File | Change |
-|------|--------|
-| `module.json` | `minimum: 14`, `verified: 14`, URLs to Ebonhawk3829 fork |
-| `scripts/hooks/artSelectButtonHooks.js` | Remove dead `*ConfigV2` hooks, remove `MeasuredTemplateConfig` |
-| `applications/artSelect.js` | `FormApplication` → `ApplicationV2`, `ui.windows` → `foundry.applications.instances` |
-| `applications/compendiumMap.js` | `FormApplication` → `ApplicationV2` |
-| `applications/configJsonEdit.js` | `FormApplication` → `ApplicationV2` |
-| `applications/configScriptEdit.js` | `FormApplication` → `ApplicationV2` |
-| `applications/configureSettings.js` | `FormApplication` → `ApplicationV2`, manual tab switching |
-| `applications/effectMappingForm.js` | `FormApplication` → `ApplicationV2` |
-| `applications/flagsConfig.js` | `FormApplication` → `ApplicationV2` |
-| `applications/forgeSearchPaths.js` | `FormApplication` → `ApplicationV2` |
-| `applications/missingImageConfig.js` | `FormApplication` → `ApplicationV2` |
-| `applications/overlayConfig.js` | `FormApplication` → `ApplicationV2` |
-| `applications/randomizerConfig.js` | `FormApplication` → `ApplicationV2` |
-| `applications/tokenHUDClientSettings.js` | `FormApplication` → `ApplicationV2` |
-| `applications/userList.js` | `FormApplication` → `ApplicationV2` |
-| `applications/tokenHUD.js` | jQuery→native DOM, two bug fixes |
-| `templates/*.html` (13 files) | Removed `<form>` wrapper, wrapped in single root `<div>` |
-| `webpack.config.js` | Added `output.environment`, Terser `ecma: 2022`, `keep_classnames: true` |
+**Environment coverage not tested:**
+
+- Only tested as a single user / GM. Player-permission paths (limited HUD access, shared variants) untested.
+- Only tested on one game system (dnd5e, presumably). Other systems' sheet selectors may differ.
+
+**Known deferred / not idiomatic** — See "Known deviations" above. Functional but candidates for future cleanup if pursuing a polished upstream PR.
+
