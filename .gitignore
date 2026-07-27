@@ -7,3 +7,4 @@ package-lock.json
 token-variants/token-variants-cache.json
 token-variants/bundle/*
 release/*
+ISSUE_DRAFT.md

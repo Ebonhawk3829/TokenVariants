@@ -163,14 +163,14 @@ export default class ConfigureSettings extends foundry.applications.api.Handleba
     data.staticCacheFile = settings.staticCacheFile;
     data.stackStatusConfig = settings.stackStatusConfig;
     data.mergeGroup = settings.mergeGroup;
-    data.customImageCategories = settings.customImageCategories.join(',');
+    data.customImageCategories = (Array.isArray(settings.customImageCategories) ? settings.customImageCategories : []).join(',');
     data.disableEffectIcons = settings.disableEffectIcons;
     data.displayEffectIconsOnHover = settings.displayEffectIconsOnHover;
     data.filterEffectIcons = settings.filterEffectIcons;
     data.hideElevationTooltip = settings.hideElevationTooltip;
     data.hideTokenBorder = settings.hideTokenBorder;
     data.filterCustomEffectIcons = settings.filterCustomEffectIcons;
-    data.filterIconList = settings.filterIconList.join(',');
+    data.filterIconList = (Array.isArray(settings.filterIconList) ? settings.filterIconList : []).join(',');
     data.updateTokenProto = settings.updateTokenProto;
     data.imgNameContainsDimensions = settings.imgNameContainsDimensions;
     data.imgNameContainsFADimensions = settings.imgNameContainsFADimensions;
